@@ -50,7 +50,7 @@ func DependencyFromString(data string) *Dependency {
 }
 
 func (d *Dependency) HasVersion() bool {
-	return d.Version != ""
+	return d.Version != "" && !strings.HasPrefix(d.Version, "${")
 }
 
 func (d *Dependency) GroupIdAsPath() string {

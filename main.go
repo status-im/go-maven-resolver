@@ -88,7 +88,7 @@ func tryRepos(path string) (string, []byte, error) {
 			return url, project, nil
 		}
 	}
-	return "", nil, errors.New("unable to find URL")
+	return "", nil, errors.New(fmt.Sprintf("unable to find URL: %s", path))
 }
 
 func resolveDep(dep Dependency) (string, *Project, error) {
@@ -141,7 +141,8 @@ func (f *POMFinder) Worker() {
 	}
 }
 
-func (f *POMFinder) FindUrls(dep Dependency) (urls []string, err error) {
+/* Threaded version */
+func (f *POMFinder) FindUrlsT(dep Dependency) (urls []string, err error) {
 	f.queue = make(chan Dependency, 100)
 	f.results = make(chan Dependency, 100)
 
@@ -159,6 +160,34 @@ func (f *POMFinder) FindUrls(dep Dependency) (urls []string, err error) {
 	f.wg.Wait()
 
 	return []string{}, nil
+}
+
+/* Recursive version */
+func (f *POMFinder) FindUrlsR(dep Dependency) (urls []string, err error) {
+	if url, ok := f.deps.Load(dep); ok {
+		fmt.Println("FOUND")
+		return []string{url.(string)}, nil
+	}
+
+	url, project, err := resolveDep(dep)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return nil, err
+	}
+
+	if url != "" {
+		fmt.Println("Found:", url)
+		f.deps.Store(dep, url)
+
+		for _, subDep := range project.Dependencies {
+			urls, err := f.FindUrlsR(subDep)
+			if err != nil {
+				return nil, err
+			}
+			urls = append(urls, urls...)
+		}
+	}
+	return urls, nil
 }
 
 var packageName string
@@ -188,7 +217,7 @@ func main() {
 	} else if packageName != "" {
 		dep := DependencyFromString(packageName)
 		f := POMFinder{}
-		urls, err := f.FindUrls(*dep)
+		urls, err := f.FindUrlsR(*dep)
 		if err != nil {
 			fmt.Println("failed to find URL:", err)
 			os.Exit(1)
