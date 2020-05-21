@@ -8,48 +8,19 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"strings"
+	"sync"
 )
-
-type Dependency struct {
-	GroupId    string `xml:"groupId"`
-	ArtifactId string `xml:"artifactId"`
-	Version    string `xml:"version"`
-	Scope      string `xml:"scope"`
-	Optional   bool   `xml:"optional"`
-}
-
-type Project struct {
-	GroupId      string       `xml:"groupId"`
-	ArtifactId   string       `xml:"artifactId"`
-	Name         string       `xml:"name"`
-	Description  string       `xml:"description"`
-	Version      string       `xml:"version"`
-	Dependencies []Dependency `xml:"dependencies>dependency"`
-}
-
-func DependencyFromString(data string) *Dependency {
-	tokens := strings.Split(data, ":")
-	if len(tokens) < 3 {
-		return nil
-	}
-	return &Dependency{
-		GroupId:    tokens[0],
-		ArtifactId: tokens[1],
-		Version:    tokens[2],
-	}
-}
-
-func (d *Dependency) GetPath() string {
-	path := strings.ReplaceAll(d.GroupId, ".", "/")
-	return fmt.Sprintf("%s/%s/%s/%s-%s.pom",
-		path, d.ArtifactId, d.Version, d.ArtifactId, d.Version)
-}
 
 func parsePOM(bytes []byte) *Project {
 	var project Project
 	xml.Unmarshal(bytes, &project)
 	return &project
+}
+
+func parseMeta(bytes []byte) *Metadata {
+	var meta Metadata
+	xml.Unmarshal(bytes, &meta)
+	return &meta
 }
 
 func readPOM(path string) (*Project, error) {
@@ -64,7 +35,7 @@ func readPOM(path string) (*Project, error) {
 	return parsePOM(bytes), nil
 }
 
-func fetchPOM(url string) (*Project, error) {
+func fetch(url string) ([]byte, error) {
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
@@ -77,7 +48,23 @@ func fetchPOM(url string) (*Project, error) {
 	if err != nil {
 		return nil, err
 	}
+	return bytes, nil
+}
+
+func fetchPOM(url string) (*Project, error) {
+	bytes, err := fetch(url)
+	if err != nil {
+		return nil, err
+	}
 	return parsePOM(bytes), nil
+}
+
+func fetchMeta(url string) (*Metadata, error) {
+	bytes, err := fetch(url)
+	if err != nil {
+		return nil, err
+	}
+	return parseMeta(bytes), nil
 }
 
 func repos() []string {
@@ -93,10 +80,10 @@ func repos() []string {
 	}
 }
 
-func tryRepos(dep Dependency) (string, *Project, error) {
+func tryRepos(path string) (string, []byte, error) {
 	for _, repo := range repos() {
-		var url string = repo + "/" + dep.GetPath()
-		project, err := fetchPOM(url)
+		url := repo + "/" + path
+		project, err := fetch(url)
 		if err == nil {
 			return url, project, nil
 		}
@@ -104,19 +91,74 @@ func tryRepos(dep Dependency) (string, *Project, error) {
 	return "", nil, errors.New("unable to find URL")
 }
 
-func findAllUrls(dep Dependency) (urls []string, err error) {
-	url, project, err := tryRepos(dep)
-	fmt.Println("Found:", url)
-	if err == nil {
-		for _, subDep := range project.Dependencies {
-			urls, err = findAllUrls(subDep)
-			if err != nil {
-				fmt.Println("failed to find:", err)
-				return nil, err
+func resolveDep(dep Dependency) (string, *Project, error) {
+	if !dep.HasVersion() {
+		_, bytes, err := tryRepos(dep.GetMetaPath())
+		if err != nil {
+			fmt.Println("Meta err:", err)
+			return "", nil, errors.New("no meta for dep")
+		}
+		meta := parseMeta(bytes)
+		dep.Version = meta.Versioning.Latest
+	}
+	url, bytes, err := tryRepos(dep.GetPOMPath())
+	if err != nil {
+		return "", nil, err
+	}
+	return url, parsePOM(bytes), nil
+}
+
+type POMFinder struct {
+	deps    sync.Map
+	wg      sync.WaitGroup
+	queue   chan Dependency
+	results chan Dependency
+}
+
+func (f *POMFinder) Worker() {
+	defer f.wg.Done()
+	for dep := range f.queue {
+		fmt.Println("Checking:", dep)
+
+		if _, ok := f.deps.Load(dep); ok {
+			fmt.Println("FOUND")
+			continue
+		}
+
+		url, project, err := resolveDep(dep)
+		if err != nil {
+			fmt.Println("Error:", err)
+			continue
+		}
+
+		if url != "" {
+			fmt.Println("Found:", url)
+			f.deps.Store(dep, url)
+			for _, subDep := range project.Dependencies {
+				f.results <- subDep
 			}
 		}
 	}
-	return append(urls, url), nil
+}
+
+func (f *POMFinder) FindUrls(dep Dependency) (urls []string, err error) {
+	f.queue = make(chan Dependency, 100)
+	f.results = make(chan Dependency, 100)
+
+	f.wg.Add(1)
+	go f.Worker()
+
+	f.queue <- dep
+
+	for subDep := range f.results {
+		if _, ok := f.deps.Load(subDep); !ok {
+			f.queue <- subDep
+		}
+	}
+
+	f.wg.Wait()
+
+	return []string{}, nil
 }
 
 var packageName string
@@ -145,7 +187,8 @@ func main() {
 		fmt.Println(project)
 	} else if packageName != "" {
 		dep := DependencyFromString(packageName)
-		urls, err := findAllUrls(*dep)
+		f := POMFinder{}
+		urls, err := f.FindUrls(*dep)
 		if err != nil {
 			fmt.Println("failed to find URL:", err)
 			os.Exit(1)
