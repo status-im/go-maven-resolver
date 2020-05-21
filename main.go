@@ -121,7 +121,6 @@ func (f *POMFinder) Worker() {
 		fmt.Println("Checking:", dep)
 
 		if _, ok := f.deps.Load(dep); ok {
-			fmt.Println("FOUND")
 			continue
 		}
 
@@ -165,7 +164,6 @@ func (f *POMFinder) FindUrlsT(dep Dependency) (urls []string, err error) {
 /* Recursive version */
 func (f *POMFinder) FindUrlsR(dep Dependency) (urls []string, err error) {
 	if url, ok := f.deps.Load(dep); ok {
-		fmt.Println("FOUND")
 		return []string{url.(string)}, nil
 	}
 
@@ -175,17 +173,20 @@ func (f *POMFinder) FindUrlsR(dep Dependency) (urls []string, err error) {
 		return nil, err
 	}
 
-	if url != "" {
-		fmt.Println("Found:", url)
-		f.deps.Store(dep, url)
+	if url == "" {
+		return nil, errors.New("no URLs found")
+	}
 
-		for _, subDep := range project.Dependencies {
-			urls, err := f.FindUrlsR(subDep)
-			if err != nil {
-				return nil, err
-			}
-			urls = append(urls, urls...)
+	fmt.Println("Found:", url)
+	f.deps.Store(dep, url)
+	urls = append(urls, url)
+
+	for _, subDep := range project.Dependencies {
+		sUrls, err := f.FindUrlsR(subDep)
+		if err != nil {
+			return nil, err
 		}
+		urls = append(urls, sUrls...)
 	}
 	return urls, nil
 }
