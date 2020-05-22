@@ -99,18 +99,27 @@ func InvalidDep(dep Dependency) bool {
 }
 
 type POMFinder struct {
-	deps sync.Map       /* to avoid checking the same dep */
-	wg   sync.WaitGroup /* to figure out when it's done */
+	deps map[Dependency]bool /* to avoid checking the same dep */
+	mtx  sync.Mutex          /* for locking access to the deps map */
+	wg   sync.WaitGroup      /* to figure out when it's done */
+}
+
+func (f *POMFinder) LockDep(dep Dependency) bool {
+	f.mtx.Lock()
+	defer f.mtx.Unlock()
+	if f.deps[dep] == true {
+		return false
+	}
+	f.deps[dep] = true
+	return true
 }
 
 /* TODO use a worker pool */
 func (f *POMFinder) FindUrls(dep Dependency) {
 	defer f.wg.Done()
 
-	if _, ok := f.deps.Load(dep); !ok {
-		f.deps.Store(dep, "checking")
-	} else {
-		return /* thread already working on it */
+	if !f.LockDep(dep) {
+		return
 	}
 
 	url, project, err := resolveDep(dep)
@@ -125,7 +134,6 @@ func (f *POMFinder) FindUrls(dep Dependency) {
 	}
 
 	fmt.Println(url)
-	f.deps.Store(dep, url)
 
 	for _, subDep := range project.GetDependencies() {
 		if InvalidDep(subDep) {
@@ -149,7 +157,7 @@ func main() {
 	//flagsInit() TODO
 
 	/* manages threads */
-	f := POMFinder{}
+	f := POMFinder{deps: make(map[Dependency]bool)}
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
