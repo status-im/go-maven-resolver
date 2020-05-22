@@ -46,7 +46,7 @@ func resolveDep(dep Dependency, fetchers FetcherPool) (string, *Project, error) 
 }
 
 func InvalidDep(dep Dependency) bool {
-	return dep.Optional || dep.Scope == "provided" || dep.Scope == "system"
+	return dep.Optional || dep.Scope == "provided" || dep.Scope == "system" || dep.Scope == "test"
 }
 
 type POMFinder struct {
