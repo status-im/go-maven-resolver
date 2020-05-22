@@ -3,13 +3,13 @@ package main
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 )
 
 /* TODO implement a timeout */
-func fetch(url string) ([]byte, error) {
+func fetch(url string) (io.ReadCloser, error) {
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
@@ -18,12 +18,7 @@ func fetch(url string) ([]byte, error) {
 		return nil, errors.New(
 			fmt.Sprintf("failed to fetch with: %d", resp.StatusCode))
 	}
-	defer resp.Body.Close()
-	bytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	return bytes, nil
+	return resp.Body, nil
 }
 
 func repos() []string {
@@ -42,7 +37,7 @@ func repos() []string {
 type FetcherResult struct {
 	url  string
 	repo string
-	data []byte
+	data io.ReadCloser
 }
 
 type FetcherJob struct {

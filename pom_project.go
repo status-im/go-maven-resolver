@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/xml"
+	"golang.org/x/net/html/charset"
+	"io"
 )
 
 type Project struct {
@@ -16,10 +18,13 @@ type Project struct {
 	}
 }
 
-func ProjectFromBytes(bytes []byte) Project {
+func ProjectFromBytes(reader io.ReadCloser) (*Project, error) {
+	defer reader.Close()
+	decoder := xml.NewDecoder(reader)
+	decoder.CharsetReader = charset.NewReaderLabel
 	var project Project
-	xml.Unmarshal(bytes, &project)
-	return project
+	err := decoder.Decode(&project)
+	return &project, err
 }
 
 /* Sometimes groupId is not specified in project */

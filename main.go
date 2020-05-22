@@ -23,7 +23,10 @@ func resolveDep(dep Dependency, fetchers FetcherPool) (string, *Project, error) 
 		if rval.data == nil {
 			return "", nil, errors.New("no metadata found")
 		}
-		meta := MetadataFromBytes(rval.data)
+		meta, err := MetadataFromBytes(rval.data)
+		if err != nil {
+			return "", nil, err
+		}
 		dep.Version = meta.GetLatest()
 		repo = rval.repo
 	}
@@ -35,8 +38,11 @@ func resolveDep(dep Dependency, fetchers FetcherPool) (string, *Project, error) 
 	if rval.data == nil {
 		return "", nil, errors.New("no POM found")
 	}
-	project := ProjectFromBytes(rval.data)
-	return rval.url, &project, nil
+	project, err := ProjectFromBytes(rval.data)
+	if err != nil {
+		return "", nil, err
+	}
+	return rval.url, project, nil
 }
 
 func InvalidDep(dep Dependency) bool {
@@ -82,6 +88,9 @@ func (f *POMFinder) FindUrls(dep Dependency, fetchers FetcherPool) {
 	fmt.Println(url)
 
 	for _, subDep := range project.GetDependencies() {
+		if subDep.ArtifactId == "selenium-java" {
+			fmt.Fprintln(os.Stderr, "PARENT:", dep)
+		}
 		if InvalidDep(subDep) {
 			continue
 		}

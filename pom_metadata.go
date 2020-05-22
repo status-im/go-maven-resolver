@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/xml"
+	"golang.org/x/net/html/charset"
+	"io"
 )
 
 type Versioning struct {
@@ -17,10 +19,13 @@ type Metadata struct {
 	Versioning Versioning `xml:"versioning"`
 }
 
-func MetadataFromBytes(bytes []byte) Metadata {
+func MetadataFromBytes(reader io.ReadCloser) (*Metadata, error) {
+	defer reader.Close()
+	decoder := xml.NewDecoder(reader)
+	decoder.CharsetReader = charset.NewReaderLabel
 	var meta Metadata
-	xml.Unmarshal(bytes, &meta)
-	return meta
+	err := decoder.Decode(&meta)
+	return &meta, err
 }
 
 func (m *Metadata) GetLatest() string {
