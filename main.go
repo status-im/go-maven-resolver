@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/xml"
 	"errors"
 	"flag"
@@ -109,12 +110,11 @@ func resolveDep(dep Dependency) (string, *Project, error) {
 }
 
 type POMFinder struct {
-	deps sync.Map
-	wg   sync.WaitGroup
+	deps sync.Map       /* to avoid checking the same dep */
+	wg   sync.WaitGroup /* to figure out when it's done */
 }
 
-/* Threaded version */
-func (f *POMFinder) FindUrlsT(dep Dependency) {
+func (f *POMFinder) FindUrls(dep Dependency) {
 	defer f.wg.Done()
 
 	if _, ok := f.deps.Load(dep); ok {
@@ -137,62 +137,33 @@ func (f *POMFinder) FindUrlsT(dep Dependency) {
 
 	for _, subDep := range project.Dependencies {
 		f.wg.Add(1)
-		go f.FindUrlsT(subDep)
+		go f.FindUrls(subDep)
 	}
 }
 
-/* Recursive version */
-func (f *POMFinder) FindUrlsR(dep Dependency) {
-	if _, ok := f.deps.Load(dep); ok {
-		return
-	}
-
-	url, project, err := resolveDep(dep)
-	if err != nil {
-		fmt.Println("Error:", err)
-	}
-
-	if url == "" {
-		fmt.Println("no URLs found")
-	}
-
-	fmt.Println("Found:", url)
-	f.deps.Store(dep, url)
-
-	for _, subDep := range project.Dependencies {
-		f.FindUrlsR(subDep)
-	}
-}
-
-var packageName string
-var pomPath string
+var reposPath string
 
 func flagsInit() {
-	flag.StringVar(&pomPath, "path", "", "Path to the POM file to read")
-	flag.StringVar(&packageName, "name", "", "Name of Java package")
+	flag.StringVar(&reposPath, "repos", "", "Path file with repo URLs to check.")
 	flag.Parse()
 }
 
 func main() {
-	flagsInit()
+	//flagsInit() TODO
 
-	if pomPath == "" && packageName == "" {
-		fmt.Println("POM file path or package name not specified!")
-		os.Exit(1)
-	}
+	/* manages threads */
+	f := POMFinder{}
 
-	if pomPath != "" {
-		project, err := readPOM(pomPath)
-		if err != nil {
-			fmt.Println("failed to read file:", err)
-			os.Exit(1)
-		}
-		fmt.Println(project)
-	} else if packageName != "" {
-		dep := DependencyFromString(packageName)
-		f := POMFinder{}
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		dep := DependencyFromString(scanner.Text())
 		f.wg.Add(1)
-		go f.FindUrlsT(*dep)
-		f.wg.Wait()
+		go f.FindUrls(*dep)
 	}
+
+	if err := scanner.Err(); err != nil {
+		fmt.Println("STDIN err:", err)
+	}
+
+	f.wg.Wait()
 }
