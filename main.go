@@ -9,7 +9,14 @@ import (
 	"sync"
 )
 
-func resolveDep(dep Dependency, fetchers FetcherPool) (string, *Project, error) {
+type POMFinder struct {
+	deps     map[string]bool /* to avoid checking the same dep */
+	mtx      sync.Mutex      /* for locking access to the deps map */
+	wg       sync.WaitGroup  /* to figure out when it's done */
+	fetchers FetcherPool     /* pool of workers for HTTP requests */
+}
+
+func (f *POMFinder) ResolveDep(dep Dependency) (string, *Project, error) {
 	var rval FetcherResult
 	var repo string
 	result := make(chan FetcherResult)
@@ -18,7 +25,7 @@ func resolveDep(dep Dependency, fetchers FetcherPool) (string, *Project, error) 
 	if !dep.HasVersion() {
 		/* TODO could use found repo below */
 		path := dep.GetMetaPath()
-		fetchers.queue <- FetcherJob{result, path, repo}
+		f.fetchers.queue <- FetcherJob{result, path, repo}
 		rval = <-result
 		if rval.data == nil {
 			return "", nil, errors.New("no metadata found")
@@ -32,7 +39,7 @@ func resolveDep(dep Dependency, fetchers FetcherPool) (string, *Project, error) 
 	}
 
 	path := dep.GetPOMPath()
-	fetchers.queue <- FetcherJob{result, path, repo}
+	f.fetchers.queue <- FetcherJob{result, path, repo}
 	rval = <-result
 
 	if rval.data == nil {
@@ -49,12 +56,6 @@ func InvalidDep(dep Dependency) bool {
 	return dep.Optional || dep.Scope == "provided" || dep.Scope == "system" || dep.Scope == "test"
 }
 
-type POMFinder struct {
-	deps map[string]bool /* to avoid checking the same dep */
-	mtx  sync.Mutex      /* for locking access to the deps map */
-	wg   sync.WaitGroup  /* to figure out when it's done */
-}
-
 func (f *POMFinder) LockDep(dep Dependency) bool {
 	f.mtx.Lock()
 	defer f.mtx.Unlock()
@@ -67,14 +68,14 @@ func (f *POMFinder) LockDep(dep Dependency) bool {
 }
 
 /* TODO use a worker pool */
-func (f *POMFinder) FindUrls(dep Dependency, fetchers FetcherPool) {
+func (f *POMFinder) FindUrls(dep Dependency) {
 	defer f.wg.Done()
 
 	if !f.LockDep(dep) {
 		return
 	}
 
-	url, project, err := resolveDep(dep, fetchers)
+	url, project, err := f.ResolveDep(dep)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error:", err, dep)
 		return
@@ -92,38 +93,38 @@ func (f *POMFinder) FindUrls(dep Dependency, fetchers FetcherPool) {
 			continue
 		}
 		f.wg.Add(1)
-		go f.FindUrls(subDep, fetchers)
+		go f.FindUrls(subDep)
 	}
 }
 
-var javaVersion string
-var reposPath string
+var reposFile string
+var ignoreScopes string
 
 func flagsInit() {
-	flag.StringVar(&reposPath, "repos", "", "Path file with repo URLs to check.")
-	flag.StringVar(&javaVersion, "repos", "", "Path file with repo URLs to check.")
+	flag.StringVar(&reposFile, "reposFile", "", "Path file with repo URLs to check.")
+	flag.StringVar(&ignoreScopes, "ignoreScopes", "provided,system,test", "Scopes to ignore.")
 	flag.Parse()
 }
 
 func main() {
-	//flagsInit() TODO
+	flagsInit()
 
 	/* manages traversal threads */
-	f := POMFinder{deps: make(map[string]bool)}
-
-	/* managed fetcher threads */
-	p := NewFetcherPool(200)
+	finder := POMFinder{
+		deps:     make(map[string]bool),
+		fetchers: NewFetcherPool(200),
+	}
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		dep := DependencyFromString(scanner.Text())
-		f.wg.Add(1)
-		go f.FindUrls(*dep, p)
+		finder.wg.Add(1)
+		go finder.FindUrls(*dep)
 	}
 
 	if err := scanner.Err(); err != nil {
 		fmt.Fprintln(os.Stderr, "Error:", err)
 	}
 
-	f.wg.Wait()
+	finder.wg.Wait()
 }

@@ -47,8 +47,8 @@ type FetcherJob struct {
 }
 
 type FetcherPool struct {
-	limit int
-	queue chan FetcherJob
+	limit int             /* max number of workers in pool */
+	queue chan FetcherJob /* channel for queuing jobs */
 }
 
 func NewFetcherPool(l int) FetcherPool {
