@@ -64,15 +64,68 @@ func repos() []string {
 	}
 }
 
-func tryRepos(path string) (string, []byte, error) {
-	for _, repo := range repos() {
-		url := repo + "/" + path
-		project, err := fetch(url)
-		if err == nil {
-			return url, project, nil
-		} else {
-			return "", nil, err
+type FetcherResult struct {
+	url  string
+	repo string
+	data []byte
+}
+
+type FetcherJob struct {
+	result chan FetcherResult
+	path   string
+	repo   string
+}
+
+type FetcherPool struct {
+	limit int
+	queue chan FetcherJob
+}
+
+func NewFetcherPool(l int) FetcherPool {
+	f := FetcherPool{
+		limit: l,
+		queue: make(chan FetcherJob, l),
+	}
+	/* start workers */
+	for i := 0; i < f.limit; i++ {
+		go f.Worker()
+	}
+	return f
+}
+
+func (p *FetcherPool) TryRepo(repo, path string) *FetcherResult {
+	url := repo + "/" + path
+	data, err := fetch(url)
+	if err == nil {
+		return &FetcherResult{url, repo, data}
+	} else {
+		fmt.Sprintln(os.Stderr, "Failed to fetch:", err)
+		return nil
+	}
+}
+
+func (p *FetcherPool) TryRepos(job FetcherJob) {
+	/* repo can be provided in the job */
+	if job.repo != "" {
+		rval := p.TryRepo(job.repo, job.path)
+		if rval != nil {
+			job.result <- *rval
+			return
+		}
+	} else {
+		for _, repo := range repos() {
+			rval := p.TryRepo(repo, job.path)
+			if rval != nil {
+				job.result <- *rval
+				return
+			}
 		}
 	}
-	return "", nil, errors.New("unable to find url")
+	job.result <- FetcherResult{}
+}
+
+func (p *FetcherPool) Worker() {
+	for job := range p.queue {
+		p.TryRepos(job)
+	}
 }

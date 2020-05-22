@@ -9,21 +9,33 @@ import (
 	"sync"
 )
 
-func resolveDep(dep Dependency) (string, *Project, error) {
+func resolveDep(dep Dependency, fetchers FetcherPool) (string, *Project, error) {
+	var rval FetcherResult
+	var repo string
+	result := make(chan FetcherResult)
+	defer close(result)
+
 	if !dep.HasVersion() {
 		/* TODO could use found repo below */
-		_, bytes, err := tryRepos(dep.GetMetaPath())
-		if err != nil {
+		path := dep.GetMetaPath()
+		fetchers.queue <- FetcherJob{result, path, repo}
+		rval = <-result
+		if rval.data == nil {
 			return "", nil, errors.New("no metadata found")
 		}
-		meta := parseMeta(bytes)
+		meta := parseMeta(rval.data)
 		dep.Version = meta.GetLatest()
+		repo = rval.repo
 	}
-	url, bytes, err := tryRepos(dep.GetPOMPath())
-	if err != nil {
-		return "", nil, err
+
+	path := dep.GetPOMPath()
+	fetchers.queue <- FetcherJob{result, path, repo}
+	rval = <-result
+
+	if rval.data == nil {
+		return "", nil, errors.New("no POM found")
 	}
-	return url, parsePOM(bytes), nil
+	return rval.url, parsePOM(rval.data), nil
 }
 
 func InvalidDep(dep Dependency) bool {
@@ -47,14 +59,15 @@ func (f *POMFinder) LockDep(dep Dependency) bool {
 }
 
 /* TODO use a worker pool */
-func (f *POMFinder) FindUrls(dep Dependency) {
+func (f *POMFinder) FindUrls(dep Dependency, fetchers FetcherPool) {
 	defer f.wg.Done()
 
-	if !f.LockDep(dep) {
+	found := f.LockDep(dep)
+	if !found {
 		return
 	}
 
-	url, project, err := resolveDep(dep)
+	url, project, err := resolveDep(dep, fetchers)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error:", err, dep)
 		return
@@ -72,7 +85,7 @@ func (f *POMFinder) FindUrls(dep Dependency) {
 			continue
 		}
 		f.wg.Add(1)
-		go f.FindUrls(subDep)
+		go f.FindUrls(subDep, fetchers)
 	}
 }
 
@@ -88,18 +101,21 @@ func flagsInit() {
 func main() {
 	//flagsInit() TODO
 
-	/* manages threads */
+	/* manages traversal threads */
 	f := POMFinder{deps: make(map[Dependency]bool)}
+
+	/* managed fetcher threads */
+	p := NewFetcherPool(10)
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		dep := DependencyFromString(scanner.Text())
 		f.wg.Add(1)
-		go f.FindUrls(*dep)
+		go f.FindUrls(*dep, p)
 	}
 
 	if err := scanner.Err(); err != nil {
-		fmt.Println("STDIN err:", err)
+		fmt.Fprintln(os.Stderr, "Error:", err)
 	}
 
 	f.wg.Wait()
