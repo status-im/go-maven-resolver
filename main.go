@@ -52,22 +52,6 @@ func fetch(url string) ([]byte, error) {
 	return bytes, nil
 }
 
-func fetchPOM(url string) (*Project, error) {
-	bytes, err := fetch(url)
-	if err != nil {
-		return nil, err
-	}
-	return parsePOM(bytes), nil
-}
-
-func fetchMeta(url string) (*Metadata, error) {
-	bytes, err := fetch(url)
-	if err != nil {
-		return nil, err
-	}
-	return parseMeta(bytes), nil
-}
-
 func repos() []string {
 	return []string{
 		"https://repo.maven.apache.org/maven2",
