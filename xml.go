@@ -39,6 +39,24 @@ type Metadata struct {
 	Versioning Versioning `xml:"versioning"`
 }
 
+/* Maven POM file fields can reference project */
+func (p Project) GetDependencies() []Dependency {
+	var deps []Dependency
+	for _, dep := range p.Dependencies {
+		if dep.GroupId == "${project.groupId}" {
+			dep.GroupId = p.GroupId
+		}
+		if dep.GroupId == "${pom.groupId}" {
+			dep.GroupId = p.GroupId
+		}
+		if dep.Version == "${project.version}" {
+			dep.Version = p.Version
+		}
+		deps = append(deps, dep)
+	}
+	return deps
+}
+
 func DependencyFromString(data string) *Dependency {
 	tokens := strings.Split(data, ":")
 	if len(tokens) < 3 {
@@ -52,16 +70,20 @@ func DependencyFromString(data string) *Dependency {
 }
 
 func (d Dependency) String() string {
-	return fmt.Sprintf("<Dep: G:%s A:%s V:%s O:%t S:%s",
+	return fmt.Sprintf("<Dep G=%s A=%s V=%s O=%t S=%s >",
 		d.GroupId, d.ArtifactId, d.Version, d.Optional, d.Scope)
 }
 
 func (d *Dependency) HasVersion() bool {
-	return d.Version != "" && !strings.HasPrefix(d.Version, "${")
+	return d.Version != "" && d.Version != "unspecified" && !strings.HasPrefix(d.Version, "${")
 }
 
 func (d *Dependency) IsProvided() bool {
 	return d.Scope == "provided"
+}
+
+func (d *Dependency) IsSystem() bool {
+	return d.Scope == "system"
 }
 
 /* version strings can be tricky, like "[2.1.0,2.1.1]" */

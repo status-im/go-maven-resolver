@@ -36,6 +36,7 @@ func readPOM(path string) (*Project, error) {
 	return parsePOM(bytes), nil
 }
 
+/* TODO implement a timeout */
 func fetch(url string) ([]byte, error) {
 	resp, err := http.Get(url)
 	if err != nil {
@@ -73,7 +74,7 @@ func tryRepos(path string) (string, []byte, error) {
 			return url, project, nil
 		}
 	}
-	return "", nil, errors.New(fmt.Sprintf("unable to find URL: %s", path))
+	return "", nil, errors.New("unable to find url")
 }
 
 func resolveDep(dep Dependency) (string, *Project, error) {
@@ -81,8 +82,7 @@ func resolveDep(dep Dependency) (string, *Project, error) {
 		/* TODO could use found repo below */
 		_, bytes, err := tryRepos(dep.GetMetaPath())
 		if err != nil {
-			fmt.Println("Meta err:", err, dep)
-			return "", nil, errors.New("no meta for dep")
+			return "", nil, errors.New("no metadata found")
 		}
 		meta := parseMeta(bytes)
 		dep.Version = meta.GetLatest()
@@ -94,11 +94,16 @@ func resolveDep(dep Dependency) (string, *Project, error) {
 	return url, parsePOM(bytes), nil
 }
 
+func InvalidDep(dep Dependency) bool {
+	return dep.Optional || dep.IsProvided() || dep.IsSystem()
+}
+
 type POMFinder struct {
 	deps sync.Map       /* to avoid checking the same dep */
 	wg   sync.WaitGroup /* to figure out when it's done */
 }
 
+/* TODO use a worker pool */
 func (f *POMFinder) FindUrls(dep Dependency) {
 	defer f.wg.Done()
 
@@ -110,7 +115,7 @@ func (f *POMFinder) FindUrls(dep Dependency) {
 
 	url, project, err := resolveDep(dep)
 	if err != nil {
-		fmt.Println("Error:", err, dep)
+		fmt.Fprintln(os.Stderr, "Error:", err, dep)
 		return
 	}
 
@@ -122,8 +127,8 @@ func (f *POMFinder) FindUrls(dep Dependency) {
 	fmt.Println(url)
 	f.deps.Store(dep, url)
 
-	for _, subDep := range project.Dependencies {
-		if subDep.Optional || subDep.IsProvided() {
+	for _, subDep := range project.GetDependencies() {
+		if InvalidDep(subDep) {
 			continue
 		}
 		f.wg.Add(1)
@@ -131,10 +136,12 @@ func (f *POMFinder) FindUrls(dep Dependency) {
 	}
 }
 
+var javaVersion string
 var reposPath string
 
 func flagsInit() {
 	flag.StringVar(&reposPath, "repos", "", "Path file with repo URLs to check.")
+	flag.StringVar(&javaVersion, "repos", "", "Path file with repo URLs to check.")
 	flag.Parse()
 }
 
