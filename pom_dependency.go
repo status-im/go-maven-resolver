@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/xml"
 	"fmt"
 	"sort"
 	"strings"
@@ -13,64 +12,6 @@ type Dependency struct {
 	Version    string `xml:"version"`
 	Scope      string `xml:"scope"`
 	Optional   bool   `xml:"optional"`
-
-	/* This will be set by fetching code */
-	URL string
-}
-
-type Project struct {
-	GroupId      string       `xml:"groupId"`
-	ArtifactId   string       `xml:"artifactId"`
-	Name         string       `xml:"name"`
-	Version      string       `xml:"version"`
-	Parent       Dependency   `xml:"parent"`
-	Dependencies []Dependency `xml:"dependencies>dependency"`
-	Build        struct {
-		Plugins []Dependency `xml:"plugins>plugin"`
-	}
-}
-
-type Versioning struct {
-	Latest   string   `xml:"latest"`
-	Release  string   `xml:"release"`
-	Versions []string `xml:"versions>version"`
-}
-
-type Metadata struct {
-	GroupId    string     `xml:"groupId"`
-	ArtifactId string     `xml:"artifactId"`
-	Version    string     `xml:"version"`
-	Versioning Versioning `xml:"versioning"`
-}
-
-func ProjectFromBytes(bytes []byte) Project {
-	var project Project
-	xml.Unmarshal(bytes, &project)
-	return project
-}
-
-/* Sometimes groupId is not specified in project */
-func (p Project) GetGroupId() string {
-	if p.GroupId != "" {
-		return p.GroupId
-	} else {
-		return p.Parent.GroupId
-	}
-}
-
-/* Maven POM file fields can reference project */
-func (p Project) GetDependencies() []Dependency {
-	var deps []Dependency
-	if p.Parent.ArtifactId != "" {
-		deps = append(deps, p.Parent)
-	}
-	for _, dep := range p.Dependencies {
-		deps = append(deps, dep.FixFields(p))
-	}
-	for _, dep := range p.Build.Plugins {
-		deps = append(deps, dep.FixFields(p))
-	}
-	return deps
 }
 
 func DependencyFromString(data string) *Dependency {
@@ -140,20 +81,4 @@ func (d *Dependency) GetPOMPath() string {
 	return fmt.Sprintf("%s/%s/%s/%s-%s.pom",
 		d.GroupIdAsPath(), d.ArtifactId,
 		d.GetVersion(), d.ArtifactId, d.GetVersion())
-}
-
-func MetadataFromBytes(bytes []byte) Metadata {
-	var meta Metadata
-	xml.Unmarshal(bytes, &meta)
-	return meta
-}
-
-func (m *Metadata) GetLatest() string {
-	if m.Versioning.Latest != "" {
-		return m.Versioning.Latest
-	} else if m.Versioning.Release != "" {
-		return m.Versioning.Release
-	} else {
-		return m.Version
-	}
 }
