@@ -43,18 +43,19 @@ func InvalidDep(dep Dependency) bool {
 }
 
 type POMFinder struct {
-	deps map[Dependency]bool /* to avoid checking the same dep */
-	mtx  sync.Mutex          /* for locking access to the deps map */
-	wg   sync.WaitGroup      /* to figure out when it's done */
+	deps map[string]bool /* to avoid checking the same dep */
+	mtx  sync.Mutex      /* for locking access to the deps map */
+	wg   sync.WaitGroup  /* to figure out when it's done */
 }
 
 func (f *POMFinder) LockDep(dep Dependency) bool {
 	f.mtx.Lock()
 	defer f.mtx.Unlock()
-	if f.deps[dep] == true {
+	id := dep.ID()
+	if f.deps[id] == true {
 		return false
 	}
-	f.deps[dep] = true
+	f.deps[id] = true
 	return true
 }
 
@@ -102,7 +103,7 @@ func main() {
 	//flagsInit() TODO
 
 	/* manages traversal threads */
-	f := POMFinder{deps: make(map[Dependency]bool)}
+	f := POMFinder{deps: make(map[string]bool)}
 
 	/* managed fetcher threads */
 	p := NewFetcherPool(10)
