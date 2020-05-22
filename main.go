@@ -106,7 +106,7 @@ func main() {
 	f := POMFinder{deps: make(map[string]bool)}
 
 	/* managed fetcher threads */
-	p := NewFetcherPool(10)
+	p := NewFetcherPool(200)
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
