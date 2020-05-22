@@ -94,13 +94,14 @@ func tryRepos(path string) (string, []byte, error) {
 
 func resolveDep(dep Dependency) (string, *Project, error) {
 	if !dep.HasVersion() {
+		/* TODO could use found repo below */
 		_, bytes, err := tryRepos(dep.GetMetaPath())
 		if err != nil {
 			fmt.Println("Meta err:", err, dep)
 			return "", nil, errors.New("no meta for dep")
 		}
 		meta := parseMeta(bytes)
-		dep.Version = meta.Versioning.Latest
+		dep.Version = meta.GetLatest()
 	}
 	url, bytes, err := tryRepos(dep.GetPOMPath())
 	if err != nil {
@@ -117,8 +118,10 @@ type POMFinder struct {
 func (f *POMFinder) FindUrls(dep Dependency) {
 	defer f.wg.Done()
 
-	if _, ok := f.deps.Load(dep); ok {
-		return
+	if _, ok := f.deps.Load(dep); !ok {
+		f.deps.Store(dep, "checking")
+	} else {
+		return /* thread already working on it */
 	}
 
 	url, project, err := resolveDep(dep)
