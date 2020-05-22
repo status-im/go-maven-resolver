@@ -6,14 +6,16 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 )
 
 type POMFinder struct {
-	deps     map[string]bool /* to avoid checking the same dep */
-	mtx      sync.Mutex      /* for locking access to the deps map */
-	wg       sync.WaitGroup  /* to figure out when it's done */
-	fetchers FetcherPool     /* pool of workers for HTTP requests */
+	deps         map[string]bool /* to avoid checking the same dep */
+	mtx          sync.Mutex      /* for locking access to the deps map */
+	wg           sync.WaitGroup  /* to figure out when it's done */
+	fetchers     FetcherPool     /* pool of workers for HTTP requests */
+	ignoreScopes []string        /* list of scopes to ignore */
 }
 
 func (f *POMFinder) ResolveDep(dep Dependency) (string, *Project, error) {
@@ -52,8 +54,15 @@ func (f *POMFinder) ResolveDep(dep Dependency) (string, *Project, error) {
 	return rval.url, project, nil
 }
 
-func InvalidDep(dep Dependency) bool {
-	return dep.Optional || dep.Scope == "provided" || dep.Scope == "system" || dep.Scope == "test"
+func (f *POMFinder) InvalidDep(dep Dependency) bool {
+	/* check if the scope matches any of the ignored ones */
+	for i := range f.ignoreScopes {
+		if dep.Scope == f.ignoreScopes[i] {
+			return true
+		}
+	}
+	/* else just check if it's optional */
+	return dep.Optional
 }
 
 func (f *POMFinder) LockDep(dep Dependency) bool {
@@ -89,7 +98,7 @@ func (f *POMFinder) FindUrls(dep Dependency) {
 	fmt.Println(url)
 
 	for _, subDep := range project.GetDependencies() {
-		if InvalidDep(subDep) {
+		if f.InvalidDep(subDep) {
 			continue
 		}
 		f.wg.Add(1)
@@ -124,8 +133,9 @@ func main() {
 
 	/* manages traversal threads */
 	finder := POMFinder{
-		deps:     make(map[string]bool),
-		fetchers: NewFetcherPool(workersNum, repos),
+		deps:         make(map[string]bool),
+		fetchers:     NewFetcherPool(workersNum, repos),
+		ignoreScopes: strings.Split(ignoreScopes, ","),
 	}
 
 	scanner := bufio.NewScanner(os.Stdin)
