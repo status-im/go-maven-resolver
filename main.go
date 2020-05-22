@@ -25,29 +25,32 @@ func (f *POMFinder) ResolveDep(dep Dependency) (string, *Project, error) {
 	defer close(result)
 
 	if !dep.HasVersion() {
-		/* TODO could use found repo below */
 		path := dep.GetMetaPath()
+		/* We use workers for HTTP request to avoid running out of sockets */
 		f.fetchers.queue <- FetcherJob{result, path, repo}
 		rval = <-result
 		if rval.data == nil {
 			return "", nil, errors.New("no metadata found")
 		}
-		meta, err := MetadataFromBytes(rval.data)
+		meta, err := MetadataFromReader(rval.data)
 		if err != nil {
 			return "", nil, err
 		}
 		dep.Version = meta.GetLatest()
+		/* This is to optimize the POM searching and avoid
+		 * checking more repos than is necessary. */
 		repo = rval.repo
 	}
 
 	path := dep.GetPOMPath()
+	/* We use workers for HTTP request to avoid running out of sockets */
 	f.fetchers.queue <- FetcherJob{result, path, repo}
 	rval = <-result
 
 	if rval.data == nil {
 		return "", nil, errors.New("no POM found")
 	}
-	project, err := ProjectFromBytes(rval.data)
+	project, err := ProjectFromReader(rval.data)
 	if err != nil {
 		return "", nil, err
 	}
@@ -55,16 +58,17 @@ func (f *POMFinder) ResolveDep(dep Dependency) (string, *Project, error) {
 }
 
 func (f *POMFinder) InvalidDep(dep Dependency) bool {
-	/* check if the scope matches any of the ignored ones */
+	/* Check if the scope matches any of the ignored ones. */
 	for i := range f.ignoreScopes {
 		if dep.Scope == f.ignoreScopes[i] {
 			return true
 		}
 	}
-	/* else just check if it's optional */
+	/* Else just check if it's optional, TODO parametrize. */
 	return dep.Optional
 }
 
+/* We use a map of dependency IDs to avoid repeating a search. */
 func (f *POMFinder) LockDep(dep Dependency) bool {
 	f.mtx.Lock()
 	defer f.mtx.Unlock()
@@ -79,23 +83,29 @@ func (f *POMFinder) LockDep(dep Dependency) bool {
 func (f *POMFinder) FindUrls(dep Dependency) {
 	defer f.wg.Done()
 
+	/* Check if the dependency is being checked or was already found. */
 	if !f.LockDep(dep) {
 		return
 	}
 
+	/* Does the job of finding the download URL for dependecy POM file. */
 	url, project, err := f.ResolveDep(dep)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error:", err, dep)
 		return
 	}
 
+	/* This should never happen, since most of the time if ResolveDep()
+	 * fails it is due to an HTTP error or XML parsing error. */
 	if url == "" {
-		fmt.Println("no URL found")
+		fmt.Fprintln(os.Stderr, "no URL found", dep)
 		return
 	}
 
+	/* This is what shows the found URL in STDOUT. */
 	fmt.Println(url)
 
+	/* Now that we have the POM we can check all the sub-dependencies. */
 	for _, subDep := range project.GetDependencies() {
 		if f.InvalidDep(subDep) {
 			continue
@@ -132,13 +142,16 @@ func main() {
 		repos = lines
 	}
 
-	/* manages traversal threads */
+	/* Manages traversal threads, which go through the tree of dependencies
+	 * And spawn new Go routines for each new node in the tree. */
 	finder := POMFinder{
 		deps:         make(map[string]bool),
 		fetchers:     NewFetcherPool(workersNum, requestTimeout, repos),
 		ignoreScopes: strings.Split(ignoreScopes, ","),
 	}
 
+	/* We read Maven formatted names of packages from STDIN.
+	 * The threads print found URLs into STDOUT. */
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		dep := DependencyFromString(scanner.Text())
@@ -150,5 +163,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "Error:", err)
 	}
 
+	/* Each FindUrls() call can spawn more recursive FindUrls() routines.
+	 * To know when to stop the process they also increment the WaitGroup. */
 	finder.wg.Wait()
 }

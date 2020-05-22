@@ -29,6 +29,8 @@ type FetcherJob struct {
 	repo   string
 }
 
+/* In order to avoid hitting the 'socket: too many open files' error
+ * We manage a pool of workers that do the HTTP requests to Maven repos. */
 type FetcherPool struct {
 	limit   int             /* max number of workers in pool */
 	timeout int             /* http request timeout in seconds */

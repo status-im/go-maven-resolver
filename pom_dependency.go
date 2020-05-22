@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+/* Dependency found in POM files. */
 type Dependency struct {
 	GroupId    string `xml:"groupId"`
 	ArtifactId string `xml:"artifactId"`
@@ -14,6 +15,8 @@ type Dependency struct {
 	Optional   bool   `xml:"optional"`
 }
 
+/* Maven uses a special format for dependency identifiers:
+ *  - <groupId>:<artifactId>:<version> */
 func DependencyFromString(data string) *Dependency {
 	tokens := strings.Split(data, ":")
 	if len(tokens) < 3 {
@@ -26,6 +29,7 @@ func DependencyFromString(data string) *Dependency {
 	}
 }
 
+/* POM file dependency fields can reference parent fields. */
 func (d Dependency) FixFields(parent Project) Dependency {
 	if d.GroupId == "${project.groupId}" {
 		d.GroupId = parent.GetGroupId()
@@ -48,6 +52,7 @@ func (d Dependency) String() string {
 		d.GroupId, d.ArtifactId, d.Version, d.Optional, d.Scope)
 }
 
+/* TODO this might need adjusting for cases with '${}' values */
 func (d *Dependency) HasVersion() bool {
 	return d.Version != "" && d.Version != "unspecified" && !strings.HasPrefix(d.Version, "${")
 }
@@ -60,15 +65,18 @@ func (d *Dependency) GetVersion() string {
 	return tokens[len(tokens)-1]
 }
 
+/* Group ID in POM paths are split into subfolders. */
 func (d *Dependency) GroupIdAsPath() string {
 	return strings.ReplaceAll(d.GroupId, ".", "/")
 }
 
+/* For making URL paths for package metadata files */
 func (d *Dependency) GetMetaPath() string {
 	return fmt.Sprintf("%s/%s/maven-metadata.xml",
 		d.GroupIdAsPath(), d.ArtifactId)
 }
 
+/* For making URL paths for POM files. */
 func (d *Dependency) GetPOMPath() string {
 	return fmt.Sprintf("%s/%s/%s/%s-%s.pom",
 		d.GroupIdAsPath(), d.ArtifactId,

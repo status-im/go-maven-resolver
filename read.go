@@ -5,6 +5,7 @@ import (
 	"os"
 )
 
+/* Just a helper for reading file with repo URLs. */
 func ReadFileToList(path string) ([]string, error) {
 	file, err := os.Open(path)
 	if err != nil {

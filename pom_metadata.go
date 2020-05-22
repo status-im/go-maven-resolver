@@ -12,6 +12,7 @@ type Versioning struct {
 	Versions []string `xml:"versions>version"`
 }
 
+/* XML file defining state of versions for a package. */
 type Metadata struct {
 	GroupId    string     `xml:"groupId"`
 	ArtifactId string     `xml:"artifactId"`
@@ -19,7 +20,8 @@ type Metadata struct {
 	Versioning Versioning `xml:"versioning"`
 }
 
-func MetadataFromBytes(reader io.ReadCloser) (*Metadata, error) {
+/* For reading Metadata from downloaded XML file. */
+func MetadataFromReader(reader io.ReadCloser) (*Metadata, error) {
 	defer reader.Close()
 	decoder := xml.NewDecoder(reader)
 	decoder.CharsetReader = charset.NewReaderLabel
@@ -28,6 +30,7 @@ func MetadataFromBytes(reader io.ReadCloser) (*Metadata, error) {
 	return &meta, err
 }
 
+/* There are multiple values that could indicate latest version. */
 func (m *Metadata) GetLatest() string {
 	if m.Versioning.Latest != "" {
 		return m.Versioning.Latest

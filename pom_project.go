@@ -6,6 +6,7 @@ import (
 	"io"
 )
 
+/* Root object in XML POM files defining packages. */
 type Project struct {
 	GroupId      string       `xml:"groupId"`
 	ArtifactId   string       `xml:"artifactId"`
@@ -18,7 +19,8 @@ type Project struct {
 	}
 }
 
-func ProjectFromBytes(reader io.ReadCloser) (*Project, error) {
+/* For reading Project from downloaded POM file. */
+func ProjectFromReader(reader io.ReadCloser) (*Project, error) {
 	defer reader.Close()
 	decoder := xml.NewDecoder(reader)
 	decoder.CharsetReader = charset.NewReaderLabel
