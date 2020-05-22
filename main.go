@@ -109,10 +109,21 @@ func flagsInit() {
 func main() {
 	flagsInit()
 
+	repos := defaultRepos()
+
+	if reposFile != "" {
+		lines, err := ReadFileToList(reposFile)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "failed to read repos file:", err)
+			os.Exit(1)
+		}
+		repos = lines
+	}
+
 	/* manages traversal threads */
 	finder := POMFinder{
 		deps:     make(map[string]bool),
-		fetchers: NewFetcherPool(200),
+		fetchers: NewFetcherPool(200, repos),
 	}
 
 	scanner := bufio.NewScanner(os.Stdin)

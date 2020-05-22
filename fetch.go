@@ -21,16 +21,11 @@ func fetch(url string) (io.ReadCloser, error) {
 	return resp.Body, nil
 }
 
-func repos() []string {
+func defaultRepos() []string {
 	return []string{
 		"https://repo.maven.apache.org/maven2",
 		"https://dl.google.com/dl/android/maven2",
 		"https://repository.sonatype.org/content/groups/sonatype-public-grid",
-		"https://plugins.gradle.org/m2",
-		"https://maven.java.net/content/repositories/releases",
-		"https://jcenter.bintray.com",
-		"https://jitpack.io",
-		"https://repo1.maven.org/maven2",
 	}
 }
 
@@ -49,12 +44,14 @@ type FetcherJob struct {
 type FetcherPool struct {
 	limit int             /* max number of workers in pool */
 	queue chan FetcherJob /* channel for queuing jobs */
+	repos []string        /* list of repo URLs to try */
 }
 
-func NewFetcherPool(l int) FetcherPool {
+func NewFetcherPool(l int, repos []string) FetcherPool {
 	f := FetcherPool{
 		limit: l,
 		queue: make(chan FetcherJob, l),
+		repos: repos,
 	}
 	/* start workers */
 	for i := 0; i < f.limit; i++ {
@@ -83,7 +80,7 @@ func (p *FetcherPool) TryRepos(job FetcherJob) {
 			return
 		}
 	} else {
-		for _, repo := range repos() {
+		for _, repo := range p.repos {
 			rval := p.TryRepo(repo, job.path)
 			if rval != nil {
 				job.result <- *rval
