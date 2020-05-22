@@ -17,12 +17,18 @@ type Dependency struct {
 	URL string
 }
 
+type Parent struct {
+	GroupId    string `xml:"groupId"`
+	ArtifactId string `xml:"artifactId"`
+	Version    string `xml:"version"`
+}
+
 type Project struct {
 	GroupId      string       `xml:"groupId"`
 	ArtifactId   string       `xml:"artifactId"`
 	Name         string       `xml:"name"`
-	Description  string       `xml:"description"`
 	Version      string       `xml:"version"`
+	Parent       Parent       `xml:"parent"`
 	Dependencies []Dependency `xml:"dependencies>dependency"`
 }
 
@@ -39,15 +45,24 @@ type Metadata struct {
 	Versioning Versioning `xml:"versioning"`
 }
 
+/* Sometimes groupId is not specified in project */
+func (p Project) GetGroupId() string {
+	if p.GroupId != "" {
+		return p.GroupId
+	} else {
+		return p.Parent.GroupId
+	}
+}
+
 /* Maven POM file fields can reference project */
 func (p Project) GetDependencies() []Dependency {
 	var deps []Dependency
 	for _, dep := range p.Dependencies {
 		if dep.GroupId == "${project.groupId}" {
-			dep.GroupId = p.GroupId
+			dep.GroupId = p.GetGroupId()
 		}
 		if dep.GroupId == "${pom.groupId}" {
-			dep.GroupId = p.GroupId
+			dep.GroupId = p.GetGroupId()
 		}
 		if dep.Version == "${project.version}" {
 			dep.Version = p.Version
