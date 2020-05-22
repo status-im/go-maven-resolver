@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -49,8 +50,25 @@ func DependencyFromString(data string) *Dependency {
 	}
 }
 
+func (d Dependency) String() string {
+	return fmt.Sprintf("<Dep: G:%s A:%s V:%s O:%t S:%s",
+		d.GroupId, d.ArtifactId, d.Version, d.Optional, d.Scope)
+}
+
 func (d *Dependency) HasVersion() bool {
 	return d.Version != "" && !strings.HasPrefix(d.Version, "${")
+}
+
+func (d *Dependency) IsProvided() bool {
+	return d.Scope == "provided"
+}
+
+/* version strings can be tricky, like "[2.1.0,2.1.1]" */
+func (d *Dependency) GetVersion() string {
+	clean := strings.Trim(d.Version, "[]")
+	tokens := strings.Split(clean, ",")
+	sort.Strings(tokens)
+	return tokens[len(tokens)-1]
 }
 
 func (d *Dependency) GroupIdAsPath() string {
@@ -64,5 +82,6 @@ func (d *Dependency) GetMetaPath() string {
 
 func (d *Dependency) GetPOMPath() string {
 	return fmt.Sprintf("%s/%s/%s/%s-%s.pom",
-		d.GroupIdAsPath(), d.ArtifactId, d.Version, d.ArtifactId, d.Version)
+		d.GroupIdAsPath(), d.ArtifactId,
+		d.GetVersion(), d.ArtifactId, d.GetVersion())
 }

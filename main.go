@@ -96,7 +96,7 @@ func resolveDep(dep Dependency) (string, *Project, error) {
 	if !dep.HasVersion() {
 		_, bytes, err := tryRepos(dep.GetMetaPath())
 		if err != nil {
-			fmt.Println("Meta err:", err)
+			fmt.Println("Meta err:", err, dep)
 			return "", nil, errors.New("no meta for dep")
 		}
 		meta := parseMeta(bytes)
@@ -123,7 +123,7 @@ func (f *POMFinder) FindUrls(dep Dependency) {
 
 	url, project, err := resolveDep(dep)
 	if err != nil {
-		fmt.Println("Error:", err)
+		fmt.Println("Error:", err, dep)
 		return
 	}
 
@@ -132,10 +132,13 @@ func (f *POMFinder) FindUrls(dep Dependency) {
 		return
 	}
 
-	fmt.Println("Found:", url)
+	fmt.Println(url)
 	f.deps.Store(dep, url)
 
 	for _, subDep := range project.Dependencies {
+		if subDep.Optional || subDep.IsProvided() {
+			continue
+		}
 		f.wg.Add(1)
 		go f.FindUrls(subDep)
 	}
