@@ -46,7 +46,7 @@ func resolveDep(dep Dependency, fetchers FetcherPool) (string, *Project, error) 
 }
 
 func InvalidDep(dep Dependency) bool {
-	return dep.Optional || dep.IsProvided() || dep.IsSystem()
+	return dep.Optional || dep.Scope == "provided" || dep.Scope == "system"
 }
 
 type POMFinder struct {
@@ -88,9 +88,6 @@ func (f *POMFinder) FindUrls(dep Dependency, fetchers FetcherPool) {
 	fmt.Println(url)
 
 	for _, subDep := range project.GetDependencies() {
-		if subDep.ArtifactId == "selenium-java" {
-			fmt.Fprintln(os.Stderr, "PARENT:", dep)
-		}
 		if InvalidDep(subDep) {
 			continue
 		}

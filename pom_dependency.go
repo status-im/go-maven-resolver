@@ -52,14 +52,6 @@ func (d *Dependency) HasVersion() bool {
 	return d.Version != "" && d.Version != "unspecified" && !strings.HasPrefix(d.Version, "${")
 }
 
-func (d *Dependency) IsProvided() bool {
-	return d.Scope == "provided"
-}
-
-func (d *Dependency) IsSystem() bool {
-	return d.Scope == "system"
-}
-
 /* version strings can be tricky, like "[2.1.0,2.1.1]" */
 func (d *Dependency) GetVersion() string {
 	clean := strings.Trim(d.Version, "[]")
