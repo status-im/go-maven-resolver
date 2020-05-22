@@ -109,86 +109,59 @@ func resolveDep(dep Dependency) (string, *Project, error) {
 }
 
 type POMFinder struct {
-	deps    sync.Map
-	wg      sync.WaitGroup
-	queue   chan Dependency
-	results chan Dependency
-}
-
-func (f *POMFinder) Worker() {
-	defer f.wg.Done()
-	for dep := range f.queue {
-		fmt.Println("Checking:", dep)
-
-		if _, ok := f.deps.Load(dep); ok {
-			continue
-		}
-
-		url, project, err := resolveDep(dep)
-		if err != nil {
-			fmt.Println("Error:", err)
-			continue
-		}
-
-		if url != "" {
-			fmt.Println("Found:", url)
-			f.deps.Store(dep, url)
-			for _, subDep := range project.Dependencies {
-				f.results <- subDep
-			}
-		}
-	}
+	deps sync.Map
+	wg   sync.WaitGroup
 }
 
 /* Threaded version */
-func (f *POMFinder) FindUrlsT(dep Dependency) (urls []string, err error) {
-	f.queue = make(chan Dependency, 100)
-	f.results = make(chan Dependency, 100)
+func (f *POMFinder) FindUrlsT(dep Dependency) {
+	defer f.wg.Done()
 
-	f.wg.Add(1)
-	go f.Worker()
-
-	f.queue <- dep
-
-	for subDep := range f.results {
-		if _, ok := f.deps.Load(subDep); !ok {
-			f.queue <- subDep
-		}
-	}
-
-	f.wg.Wait()
-
-	return []string{}, nil
-}
-
-/* Recursive version */
-func (f *POMFinder) FindUrlsR(dep Dependency) (urls []string, err error) {
-	if url, ok := f.deps.Load(dep); ok {
-		return []string{url.(string)}, nil
+	if _, ok := f.deps.Load(dep); ok {
+		return
 	}
 
 	url, project, err := resolveDep(dep)
 	if err != nil {
 		fmt.Println("Error:", err)
-		return nil, err
+		return
 	}
 
 	if url == "" {
-		return nil, errors.New("no URLs found")
+		fmt.Println("no URL found")
+		return
 	}
 
 	fmt.Println("Found:", url)
 	f.deps.Store(dep, url)
-	urls = append(urls, url)
 
 	for _, subDep := range project.Dependencies {
-		sUrls, err := f.FindUrlsR(subDep)
-		if err != nil {
-			return nil, err
-		}
-		urls = append(urls, sUrls...)
+		f.wg.Add(1)
+		go f.FindUrlsT(subDep)
 	}
-	return urls, nil
+}
+
+/* Recursive version */
+func (f *POMFinder) FindUrlsR(dep Dependency) {
+	if _, ok := f.deps.Load(dep); ok {
+		return
+	}
+
+	url, project, err := resolveDep(dep)
+	if err != nil {
+		fmt.Println("Error:", err)
+	}
+
+	if url == "" {
+		fmt.Println("no URLs found")
+	}
+
+	fmt.Println("Found:", url)
+	f.deps.Store(dep, url)
+
+	for _, subDep := range project.Dependencies {
+		f.FindUrlsR(subDep)
+	}
 }
 
 var packageName string
@@ -218,11 +191,8 @@ func main() {
 	} else if packageName != "" {
 		dep := DependencyFromString(packageName)
 		f := POMFinder{}
-		urls, err := f.FindUrlsR(*dep)
-		if err != nil {
-			fmt.Println("failed to find URL:", err)
-			os.Exit(1)
-		}
-		fmt.Println(urls)
+		f.wg.Add(1)
+		go f.FindUrlsT(*dep)
+		f.wg.Wait()
 	}
 }
