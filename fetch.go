@@ -1,37 +1,12 @@
 package main
 
 import (
-	"encoding/xml"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
 )
-
-func parsePOM(bytes []byte) *Project {
-	var project Project
-	xml.Unmarshal(bytes, &project)
-	return &project
-}
-
-func parseMeta(bytes []byte) *Metadata {
-	var meta Metadata
-	xml.Unmarshal(bytes, &meta)
-	return &meta
-}
-
-func readPOM(path string) (*Project, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	bytes, err := ioutil.ReadAll(file)
-	if err != nil {
-		return nil, err
-	}
-	return parsePOM(bytes), nil
-}
 
 /* TODO implement a timeout */
 func fetch(url string) ([]byte, error) {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/xml"
 	"fmt"
 	"sort"
 	"strings"
@@ -17,19 +18,16 @@ type Dependency struct {
 	URL string
 }
 
-type Parent struct {
-	GroupId    string `xml:"groupId"`
-	ArtifactId string `xml:"artifactId"`
-	Version    string `xml:"version"`
-}
-
 type Project struct {
 	GroupId      string       `xml:"groupId"`
 	ArtifactId   string       `xml:"artifactId"`
 	Name         string       `xml:"name"`
 	Version      string       `xml:"version"`
-	Parent       Parent       `xml:"parent"`
+	Parent       Dependency   `xml:"parent"`
 	Dependencies []Dependency `xml:"dependencies>dependency"`
+	Build        struct {
+		Plugins []Dependency `xml:"plugins>plugin"`
+	}
 }
 
 type Versioning struct {
@@ -45,6 +43,12 @@ type Metadata struct {
 	Versioning Versioning `xml:"versioning"`
 }
 
+func ProjectFromBytes(bytes []byte) Project {
+	var project Project
+	xml.Unmarshal(bytes, &project)
+	return project
+}
+
 /* Sometimes groupId is not specified in project */
 func (p Project) GetGroupId() string {
 	if p.GroupId != "" {
@@ -57,17 +61,14 @@ func (p Project) GetGroupId() string {
 /* Maven POM file fields can reference project */
 func (p Project) GetDependencies() []Dependency {
 	var deps []Dependency
+	if p.Parent.ArtifactId != "" {
+		deps = append(deps, p.Parent)
+	}
 	for _, dep := range p.Dependencies {
-		if dep.GroupId == "${project.groupId}" {
-			dep.GroupId = p.GetGroupId()
-		}
-		if dep.GroupId == "${pom.groupId}" {
-			dep.GroupId = p.GetGroupId()
-		}
-		if dep.Version == "${project.version}" {
-			dep.Version = p.Version
-		}
-		deps = append(deps, dep)
+		deps = append(deps, dep.FixFields(p))
+	}
+	for _, dep := range p.Build.Plugins {
+		deps = append(deps, dep.FixFields(p))
 	}
 	return deps
 }
@@ -82,6 +83,19 @@ func DependencyFromString(data string) *Dependency {
 		ArtifactId: tokens[1],
 		Version:    tokens[2],
 	}
+}
+
+func (d Dependency) FixFields(parent Project) Dependency {
+	if d.GroupId == "${project.groupId}" {
+		d.GroupId = parent.GetGroupId()
+	}
+	if d.GroupId == "${pom.groupId}" {
+		d.GroupId = parent.GetGroupId()
+	}
+	if d.Version == "${project.version}" {
+		d.Version = parent.Version
+	}
+	return d
 }
 
 func (d Dependency) ID() string {
@@ -126,6 +140,12 @@ func (d *Dependency) GetPOMPath() string {
 	return fmt.Sprintf("%s/%s/%s/%s-%s.pom",
 		d.GroupIdAsPath(), d.ArtifactId,
 		d.GetVersion(), d.ArtifactId, d.GetVersion())
+}
+
+func MetadataFromBytes(bytes []byte) Metadata {
+	var meta Metadata
+	xml.Unmarshal(bytes, &meta)
+	return meta
 }
 
 func (m *Metadata) GetLatest() string {

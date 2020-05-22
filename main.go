@@ -23,7 +23,7 @@ func resolveDep(dep Dependency, fetchers FetcherPool) (string, *Project, error) 
 		if rval.data == nil {
 			return "", nil, errors.New("no metadata found")
 		}
-		meta := parseMeta(rval.data)
+		meta := MetadataFromBytes(rval.data)
 		dep.Version = meta.GetLatest()
 		repo = rval.repo
 	}
@@ -35,7 +35,8 @@ func resolveDep(dep Dependency, fetchers FetcherPool) (string, *Project, error) 
 	if rval.data == nil {
 		return "", nil, errors.New("no POM found")
 	}
-	return rval.url, parsePOM(rval.data), nil
+	project := ProjectFromBytes(rval.data)
+	return rval.url, &project, nil
 }
 
 func InvalidDep(dep Dependency) bool {
@@ -63,8 +64,7 @@ func (f *POMFinder) LockDep(dep Dependency) bool {
 func (f *POMFinder) FindUrls(dep Dependency, fetchers FetcherPool) {
 	defer f.wg.Done()
 
-	found := f.LockDep(dep)
-	if !found {
+	if !f.LockDep(dep) {
 		return
 	}
 
