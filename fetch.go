@@ -6,20 +6,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"time"
 )
-
-/* TODO implement a timeout */
-func fetch(url string) (io.ReadCloser, error) {
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New(
-			fmt.Sprintf("failed to fetch with: %d", resp.StatusCode))
-	}
-	return resp.Body, nil
-}
 
 func defaultRepos() []string {
 	return []string{
@@ -42,16 +30,18 @@ type FetcherJob struct {
 }
 
 type FetcherPool struct {
-	limit int             /* max number of workers in pool */
-	queue chan FetcherJob /* channel for queuing jobs */
-	repos []string        /* list of repo URLs to try */
+	limit   int             /* max number of workers in pool */
+	timeout int             /* http request timeout in seconds */
+	queue   chan FetcherJob /* channel for queuing jobs */
+	repos   []string        /* list of repo URLs to try */
 }
 
-func NewFetcherPool(l int, repos []string) FetcherPool {
+func NewFetcherPool(limit, timeout int, repos []string) FetcherPool {
 	f := FetcherPool{
-		limit: l,
-		queue: make(chan FetcherJob, l),
-		repos: repos,
+		limit:   limit,
+		timeout: timeout,
+		queue:   make(chan FetcherJob, limit),
+		repos:   repos,
 	}
 	/* start workers */
 	for i := 0; i < f.limit; i++ {
@@ -60,9 +50,24 @@ func NewFetcherPool(l int, repos []string) FetcherPool {
 	return f
 }
 
+func (p *FetcherPool) Fetch(url string) (io.ReadCloser, error) {
+	client := &http.Client{
+		Timeout: time.Duration(p.timeout) * time.Second,
+	}
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New(
+			fmt.Sprintf("failed to fetch with: %d", resp.StatusCode))
+	}
+	return resp.Body, nil
+}
+
 func (p *FetcherPool) TryRepo(repo, path string) *FetcherResult {
 	url := repo + "/" + path
-	data, err := fetch(url)
+	data, err := p.Fetch(url)
 	if err == nil {
 		return &FetcherResult{url, repo, data}
 	} else {

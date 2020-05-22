@@ -76,7 +76,6 @@ func (f *POMFinder) LockDep(dep Dependency) bool {
 	return true
 }
 
-/* TODO use a worker pool */
 func (f *POMFinder) FindUrls(dep Dependency) {
 	defer f.wg.Done()
 
@@ -107,11 +106,13 @@ func (f *POMFinder) FindUrls(dep Dependency) {
 }
 
 var workersNum int
+var requestTimeout int
 var reposFile string
 var ignoreScopes string
 
 func flagsInit() {
 	flag.IntVar(&workersNum, "workers", 50, "Number of fetching workers.")
+	flag.IntVar(&requestTimeout, "timeout", 2, "HTTP request timeout in seconds.")
 	flag.StringVar(&reposFile, "reposFile", "", "Path file with repo URLs to check.")
 	flag.StringVar(&ignoreScopes, "ignoreScopes", "provided,system,test", "Scopes to ignore.")
 	flag.Parse()
@@ -134,7 +135,7 @@ func main() {
 	/* manages traversal threads */
 	finder := POMFinder{
 		deps:         make(map[string]bool),
-		fetchers:     NewFetcherPool(workersNum, repos),
+		fetchers:     NewFetcherPool(workersNum, requestTimeout, repos),
 		ignoreScopes: strings.Split(ignoreScopes, ","),
 	}
 
