@@ -58,7 +58,7 @@ func main() {
 
 	/* Manages traversal threads, which go through the tree of dependencies
 	 * And spawn new Go routines for each new node in the tree. */
-	finder := POMFinder{
+	finder := Finder{
 		deps:         make(map[string]bool),
 		fetchers:     NewFetcherPool(workersNum, requestTimeout, repos),
 		ignoreScopes: strings.Split(ignoreScopes, ","),

@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-type POMFinder struct {
+type Finder struct {
 	deps         map[string]bool /* to avoid checking the same dep */
 	mtx          sync.Mutex      /* for locking access to the deps map */
 	wg           sync.WaitGroup  /* to figure out when it's done */
@@ -15,7 +15,7 @@ type POMFinder struct {
 	ignoreScopes []string        /* list of scopes to ignore */
 }
 
-func (f *POMFinder) ResolveDep(dep Dependency) (string, *Project, error) {
+func (f *Finder) ResolveDep(dep Dependency) (string, *Project, error) {
 	var rval FetcherResult
 	var repo string
 	result := make(chan FetcherResult)
@@ -54,7 +54,7 @@ func (f *POMFinder) ResolveDep(dep Dependency) (string, *Project, error) {
 	return rval.url, project, nil
 }
 
-func (f *POMFinder) InvalidDep(dep Dependency) bool {
+func (f *Finder) InvalidDep(dep Dependency) bool {
 	/* Check if the scope matches any of the ignored ones. */
 	for i := range f.ignoreScopes {
 		if dep.Scope == f.ignoreScopes[i] {
@@ -66,7 +66,7 @@ func (f *POMFinder) InvalidDep(dep Dependency) bool {
 }
 
 /* We use a map of dependency IDs to avoid repeating a search. */
-func (f *POMFinder) LockDep(dep Dependency) bool {
+func (f *Finder) LockDep(dep Dependency) bool {
 	f.mtx.Lock()
 	defer f.mtx.Unlock()
 	id := dep.ID()
@@ -77,7 +77,7 @@ func (f *POMFinder) LockDep(dep Dependency) bool {
 	return true
 }
 
-func (f *POMFinder) FindUrls(dep Dependency) {
+func (f *Finder) FindUrls(dep Dependency) {
 	defer f.wg.Done()
 
 	/* Check if the dependency is being checked or was already found. */
