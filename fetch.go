@@ -1,11 +1,9 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"time"
 )
 
@@ -24,7 +22,7 @@ type FetcherResult struct {
 }
 
 type FetcherJob struct {
-	result chan FetcherResult
+	result chan *FetcherResult
 	path   string
 	repo   string
 }
@@ -32,10 +30,10 @@ type FetcherJob struct {
 /* In order to avoid hitting the 'socket: too many open files' error
  * We manage a pool of workers that do the HTTP requests to Maven repos. */
 type FetcherPool struct {
-	limit   int             /* max number of workers in pool */
-	timeout int             /* http request timeout in seconds */
-	queue   chan FetcherJob /* channel for queuing jobs */
-	repos   []string        /* list of repo URLs to try */
+	limit   int              /* max number of workers in pool */
+	timeout int              /* http request timeout in seconds */
+	queue   chan *FetcherJob /* channel for queuing jobs */
+	repos   []string         /* list of repo URLs to try */
 }
 
 func (r *FetcherResult) String() string {
@@ -46,7 +44,7 @@ func NewFetcherPool(limit, timeout int, repos []string) FetcherPool {
 	f := FetcherPool{
 		limit:   limit,
 		timeout: timeout,
-		queue:   make(chan FetcherJob, limit),
+		queue:   make(chan *FetcherJob, limit),
 		repos:   repos,
 	}
 	/* start workers */
@@ -65,41 +63,39 @@ func (p *FetcherPool) Fetch(url string) (io.ReadCloser, error) {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New(
-			fmt.Sprintf("failed to fetch with: %d", resp.StatusCode))
+		return nil, fmt.Errorf("failed to fetch with: %d", resp.StatusCode)
 	}
 	return resp.Body, nil
 }
 
-func (p *FetcherPool) TryRepo(repo, path string) *FetcherResult {
+func (p *FetcherPool) TryRepo(repo, path string) (*FetcherResult, error) {
+	var err error
 	url := repo + "/" + path
 	data, err := p.Fetch(url)
-	if err == nil {
-		return &FetcherResult{url, repo, data}
-	} else {
-		fmt.Sprintln(os.Stderr, "Failed to fetch:", err)
-		return nil
+	if err != nil {
+		return nil, fmt.Errorf("error: '%s' for: %s", err, url)
 	}
+	return &FetcherResult{url, repo, data}, nil
 }
 
-func (p *FetcherPool) TryRepos(job FetcherJob) {
+func (p *FetcherPool) TryRepos(job *FetcherJob) {
 	/* repo can be provided in the job */
 	if job.repo != "" {
-		rval := p.TryRepo(job.repo, job.path)
-		if rval != nil {
-			job.result <- *rval
+		rval, err := p.TryRepo(job.repo, job.path)
+		if err == nil {
+			job.result <- rval
 			return
 		}
 	} else {
 		for _, repo := range p.repos {
-			rval := p.TryRepo(repo, job.path)
-			if rval != nil {
-				job.result <- *rval
+			rval, err := p.TryRepo(repo, job.path)
+			if err == nil {
+				job.result <- rval
 				return
 			}
 		}
 	}
-	job.result <- FetcherResult{}
+	job.result <- &FetcherResult{}
 }
 
 func (p *FetcherPool) Worker() {

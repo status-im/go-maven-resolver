@@ -4,9 +4,12 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 )
+
+var l *log.Logger
 
 var workersNum int
 var requestTimeout int
@@ -45,6 +48,8 @@ func flagsInit() {
 }
 
 func main() {
+	l = log.New(os.Stderr, "", log.Lshortfile)
+
 	flagsInit()
 
 	repos := defaultRepos()
@@ -52,7 +57,7 @@ func main() {
 	if reposFile != "" {
 		lines, err := ReadFileToList(reposFile)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "failed to read repos file:", err)
+			l.Println("failed to read repos file:", err)
 			os.Exit(1)
 		}
 		repos = lines

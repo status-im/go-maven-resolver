@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"os"
 	"sync"
 )
 
@@ -17,22 +16,22 @@ type Finder struct {
 }
 
 func (f *Finder) ResolveDep(dep Dependency) (string, *Project, error) {
-	var rval FetcherResult
+	var rval *FetcherResult
 	var repo string
-	result := make(chan FetcherResult)
+	result := make(chan *FetcherResult)
 	defer close(result)
 
 	if !dep.HasVersion() {
 		path := dep.GetMetaPath()
 		/* We use workers for HTTP request to avoid running out of sockets */
-		f.fetchers.queue <- FetcherJob{result, path, repo}
+		f.fetchers.queue <- &FetcherJob{result, path, repo}
 		rval = <-result
-		if rval.data == nil {
-			return "", nil, errors.New("no metadata found")
+		if rval.url == "" {
+			return "", nil, fmt.Errorf("no metadata found: %s", rval.url)
 		}
 		meta, err := MetadataFromReader(rval.data)
 		if err != nil {
-			return "", nil, err
+			return "", nil, fmt.Errorf("failed to parse: %s", rval.url)
 		}
 		dep.Version = meta.GetLatest()
 		/* This is to optimize the POM searching and avoid
@@ -42,11 +41,11 @@ func (f *Finder) ResolveDep(dep Dependency) (string, *Project, error) {
 
 	path := dep.GetPOMPath()
 	/* We use workers for HTTP request to avoid running out of sockets */
-	f.fetchers.queue <- FetcherJob{result, path, repo}
+	f.fetchers.queue <- &FetcherJob{result, path, repo}
 	rval = <-result
 
 	if rval.data == nil {
-		return "", nil, errors.New("no POM found")
+		return "", nil, errors.New("no pom data")
 	}
 	project, err := ProjectFromReader(rval.data)
 	if err != nil {
@@ -89,14 +88,14 @@ func (f *Finder) FindUrls(dep Dependency) {
 	/* Does the job of finding the download URL for dependecy POM file. */
 	url, project, err := f.ResolveDep(dep)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Error:", err, dep)
+		l.Printf("error: '%s' for: %s", err, dep)
 		return
 	}
 
 	/* This should never happen, since most of the time if ResolveDep()
 	 * fails it is due to an HTTP error or XML parsing error. */
 	if url == "" {
-		fmt.Fprintln(os.Stderr, "no URL found", dep)
+		l.Printf("error: 'no URL found' for: %s", dep)
 		return
 	}
 
