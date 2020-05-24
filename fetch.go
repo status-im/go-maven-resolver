@@ -38,6 +38,10 @@ type FetcherPool struct {
 	repos   []string        /* list of repo URLs to try */
 }
 
+func (r *FetcherResult) String() string {
+	return fmt.Sprintf("<FetcherResult url=%s >", r.url)
+}
+
 func NewFetcherPool(limit, timeout int, repos []string) FetcherPool {
 	f := FetcherPool{
 		limit:   limit,
