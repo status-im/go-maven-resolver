@@ -18,6 +18,8 @@ There's also a few flags available:
 Usage of go-maven-resolver:
   -ignoreScopes string
     	Scopes to ignore. (default "provided,system,test")
+  -recursive
+    	Should recursive resolution be done (default true)
   -reposFile string
     	Path file with repo URLs to check.
   -timeout int

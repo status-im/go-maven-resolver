@@ -12,6 +12,7 @@ var workersNum int
 var requestTimeout int
 var reposFile string
 var ignoreScopes string
+var recursive bool
 
 var helpMessage string = `
 This tool takes a names of a Java Maven packages
@@ -35,6 +36,7 @@ func flagsInit() {
 		defaultUsage()
 	}
 
+	flag.BoolVar(&recursive, "recursive", true, "Should recursive resolution be done")
 	flag.IntVar(&workersNum, "workers", 50, "Number of fetching workers.")
 	flag.IntVar(&requestTimeout, "timeout", 2, "HTTP request timeout in seconds.")
 	flag.StringVar(&reposFile, "reposFile", "", "Path file with repo URLs to check.")
@@ -62,6 +64,7 @@ func main() {
 		deps:         make(map[string]bool),
 		fetchers:     NewFetcherPool(workersNum, requestTimeout, repos),
 		ignoreScopes: strings.Split(ignoreScopes, ","),
+		recursive:    recursive,
 	}
 
 	/* We read Maven formatted names of packages from STDIN.

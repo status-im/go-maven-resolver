@@ -13,6 +13,7 @@ type Finder struct {
 	wg           sync.WaitGroup  /* to figure out when it's done */
 	fetchers     FetcherPool     /* pool of workers for HTTP requests */
 	ignoreScopes []string        /* list of scopes to ignore */
+	recursive    bool            /* recursive resolution control */
 }
 
 func (f *Finder) ResolveDep(dep Dependency) (string, *Project, error) {
@@ -101,6 +102,10 @@ func (f *Finder) FindUrls(dep Dependency) {
 
 	/* This is what shows the found URL in STDOUT. */
 	fmt.Println(url)
+
+	if !f.recursive {
+		return
+	}
 
 	/* Now that we have the POM we can check all the sub-dependencies. */
 	for _, subDep := range project.GetDependencies() {
