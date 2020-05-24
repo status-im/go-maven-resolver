@@ -120,7 +120,28 @@ var requestTimeout int
 var reposFile string
 var ignoreScopes string
 
+var helpMessage string = `
+This is a tool that takes a name of a Java Maven package
+or a POM file and returns the URLs of all its dependencies.
+
+echo commons-io:commons-io:2.4 | ./go-maven-resolver
+
+The default repos used for searching are:
+%s
+
+You can provide your own list using the -reposFile flag.
+
+`
+
 func flagsInit() {
+	defaultUsage := flag.Usage
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr,
+			strings.Trim(helpMessage, "\t "),
+			strings.Join(defaultRepos(), "\n"))
+		defaultUsage()
+	}
+
 	flag.IntVar(&workersNum, "workers", 50, "Number of fetching workers.")
 	flag.IntVar(&requestTimeout, "timeout", 2, "HTTP request timeout in seconds.")
 	flag.StringVar(&reposFile, "reposFile", "", "Path file with repo URLs to check.")
