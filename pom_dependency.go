@@ -48,7 +48,7 @@ func (d Dependency) ID() string {
 }
 
 func (d Dependency) String() string {
-	return fmt.Sprintf("<Dep G=%s A=%s V=%s O=%t S=%s >",
+	return fmt.Sprintf("<Dep ID=%s:%s:%s O=%t S=%s >",
 		d.GroupId, d.ArtifactId, d.Version, d.Optional, d.Scope)
 }
 
