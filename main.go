@@ -121,8 +121,8 @@ var reposFile string
 var ignoreScopes string
 
 var helpMessage string = `
-This is a tool that takes a name of a Java Maven package
-or a POM file and returns the URLs of all its dependencies.
+This tool takes a names of a Java Maven packages
+via STDIN and returns the URLs of all its dependencies.
 
 echo commons-io:commons-io:2.4 | ./go-maven-resolver
 

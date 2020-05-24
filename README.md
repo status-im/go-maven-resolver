@@ -11,6 +11,7 @@ https://repo.maven.apache.org/maven2/commons-io/commons-io/2.4/commons-io-2.4.po
 https://repo.maven.apache.org/maven2/org/apache/commons/commons-parent/25/commons-parent-25.pom
 https://repo.maven.apache.org/maven2/org/apache/apache/9/apache-9.pom
 ```
+The package name takes the Maven format: `<groupId>:<artifactId>:<version>`
 
 There's also a few flags available:
 ```
@@ -24,6 +25,17 @@ Usage of go-maven-resolver:
   -workers int
     	Number of fetching workers. (default 50)
 ```
+
+# Details
+
+The way this works is, for each given package name:
+
+1. Iterates through a list of Maven repositories
+2. Finds and downloads the POM for the given package
+2. Analyzes the POM to find its dependencies
+3. Repeats the process recursively until all POMs are found
+
+The fetching is done by a pool of workers to avoid running out of sockets.
 
 # Reasoning
 
