@@ -78,14 +78,7 @@ func (p *FetcherPool) TryRepo(repo, path string) (*FetcherResult, error) {
 	return &FetcherResult{url, repo, data}, nil
 }
 
-func (p *FetcherPool) TryRepos(job *FetcherJob) {
-	var repos []string = p.repos
-
-	/* repo can be provided in the job */
-	if job.repo != "" {
-		repos = []string{job.repo}
-	}
-
+func (p *FetcherPool) TryRepos(job *FetcherJob, repos []string) {
 	for _, repo := range repos {
 		rval, err := p.TryRepo(repo, job.path)
 		if err == nil {
@@ -99,6 +92,13 @@ func (p *FetcherPool) TryRepos(job *FetcherJob) {
 
 func (p *FetcherPool) Worker() {
 	for job := range p.queue {
-		p.TryRepos(job)
+		var repos []string = p.repos
+
+		/* repo can be provided in the job */
+		if job.repo != "" {
+			repos = []string{job.repo}
+		}
+
+		p.TryRepos(job, repos)
 	}
 }
