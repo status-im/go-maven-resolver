@@ -7,6 +7,8 @@ import (
 	"log"
 	"os"
 	"strings"
+
+	"github.com/status-im/go-maven-resolver/fetcher"
 )
 
 var l *log.Logger
@@ -35,7 +37,7 @@ func flagsInit() {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr,
 			strings.Trim(helpMessage, "\t "),
-			strings.Join(defaultRepos(), "\n"))
+			strings.Join(fetcher.DefaultRepos, "\n"))
 		defaultUsage()
 	}
 
@@ -52,7 +54,7 @@ func main() {
 
 	flagsInit()
 
-	repos := defaultRepos()
+	repos := fetcher.DefaultRepos
 
 	if reposFile != "" {
 		lines, err := ReadFileToList(reposFile)
@@ -67,7 +69,7 @@ func main() {
 	 * And spawn new Go routines for each new node in the tree. */
 	finder := Finder{
 		deps:         make(map[string]bool),
-		fetchers:     NewFetcherPool(workersNum, requestTimeout, repos),
+		fetchers:     fetcher.NewPool(workersNum, requestTimeout, repos),
 		ignoreScopes: strings.Split(ignoreScopes, ","),
 		recursive:    recursive,
 	}
