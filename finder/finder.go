@@ -15,19 +15,19 @@ type Finder struct {
 	fetchers     fetcher.Pool    /* pool of workers for HTTP requests */
 	ignoreScopes []string        /* list of scopes to ignore */
 	recursive    bool            /* recursive resolution control */
-	l			 *log.Logger     /* for logging events */
+	l            *log.Logger     /* for logging events */
 
-	mtx          sync.Mutex      /* for locking access to the deps map */
-	wg           sync.WaitGroup  /* to figure out when it's done */
+	mtx sync.Mutex     /* for locking access to the deps map */
+	wg  sync.WaitGroup /* to figure out when it's done */
 }
 
-func New(deps map[string]bool,  fetchers fetcher.Pool, ignoreScopes []string, recursive bool, logger *log.Logger) Finder{
+func New(deps map[string]bool, fetchers fetcher.Pool, ignoreScopes []string, recursive bool, logger *log.Logger) Finder {
 	return Finder{
 		deps:         deps,
 		fetchers:     fetchers,
 		ignoreScopes: ignoreScopes,
 		recursive:    recursive,
-		l: logger,
+		l:            logger,
 	}
 }
 
