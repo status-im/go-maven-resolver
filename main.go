@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/status-im/go-maven-resolver/fetcher"
+	"github.com/status-im/go-maven-resolver/pom"
 )
 
 var l *log.Logger
@@ -78,7 +79,7 @@ func main() {
 	 * The threads print found URLs into STDOUT. */
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
-		dep := DependencyFromString(scanner.Text())
+		dep := pom.DependencyFromString(scanner.Text())
 		finder.wg.Add(1)
 		go finder.FindUrls(*dep)
 	}

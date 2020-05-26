@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/status-im/go-maven-resolver/fetcher"
+	"github.com/status-im/go-maven-resolver/pom"
 )
 
 type Finder struct {
@@ -17,7 +18,7 @@ type Finder struct {
 	recursive    bool            /* recursive resolution control */
 }
 
-func (f *Finder) ResolveDep(dep Dependency) (string, *Project, error) {
+func (f *Finder) ResolveDep(dep pom.Dependency) (string, *pom.Project, error) {
 	var rval *fetcher.Result
 	var repo string
 	result := make(chan *fetcher.Result)
@@ -31,7 +32,7 @@ func (f *Finder) ResolveDep(dep Dependency) (string, *Project, error) {
 		if rval.Url == "" {
 			return "", nil, fmt.Errorf("no metadata found: %s", rval.Url)
 		}
-		meta, err := MetadataFromReader(rval.Data)
+		meta, err := pom.MetadataFromReader(rval.Data)
 		if err != nil {
 			return "", nil, fmt.Errorf("failed to parse: %s", rval.Url)
 		}
@@ -49,14 +50,14 @@ func (f *Finder) ResolveDep(dep Dependency) (string, *Project, error) {
 	if rval.Data == nil {
 		return "", nil, errors.New("no pom data")
 	}
-	project, err := ProjectFromReader(rval.Data)
+	project, err := pom.ProjectFromReader(rval.Data)
 	if err != nil {
 		return "", nil, err
 	}
 	return rval.Url, project, nil
 }
 
-func (f *Finder) InvalidDep(dep Dependency) bool {
+func (f *Finder) InvalidDep(dep pom.Dependency) bool {
 	/* Check if the scope matches any of the ignored ones. */
 	for i := range f.ignoreScopes {
 		if dep.Scope == f.ignoreScopes[i] {
@@ -68,7 +69,7 @@ func (f *Finder) InvalidDep(dep Dependency) bool {
 }
 
 /* We use a map of dependency IDs to avoid repeating a search. */
-func (f *Finder) LockDep(dep Dependency) bool {
+func (f *Finder) LockDep(dep pom.Dependency) bool {
 	f.mtx.Lock()
 	defer f.mtx.Unlock()
 	id := dep.ID()
@@ -79,7 +80,7 @@ func (f *Finder) LockDep(dep Dependency) bool {
 	return true
 }
 
-func (f *Finder) FindUrls(dep Dependency) {
+func (f *Finder) FindUrls(dep pom.Dependency) {
 	defer f.wg.Done()
 
 	/* Check if the dependency is being checked or was already found. */
