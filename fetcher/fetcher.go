@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+/* List of Maven repo URLs to try when searching for POMs */
 var DefaultRepos = []string{
 	"https://repo.maven.apache.org/maven2",
 	"https://dl.google.com/dl/android/maven2",
@@ -20,9 +21,17 @@ type Result struct {
 }
 
 type Job struct {
-	Result chan *Result
-	Path   string
-	Repo   string
+	result chan *Result
+	path   string
+	repo   string
+}
+
+func NewJob(result chan *Result, path, repo string) *Job {
+	return &Job{
+		result: result,
+		path:   path,
+		repo:   repo,
+	}
 }
 
 /* In order to avoid hitting the 'socket: too many open files' error
@@ -78,14 +87,14 @@ func (p *Pool) TryRepo(repo, path string) (*Result, error) {
 
 func (p *Pool) TryRepos(job *Job, repos []string) {
 	for _, repo := range repos {
-		rval, err := p.TryRepo(repo, job.Path)
+		rval, err := p.TryRepo(repo, job.path)
 		if err == nil {
-			job.Result <- rval
+			job.result <- rval
 			return
 		}
 	}
 
-	job.Result <- &Result{}
+	job.result <- &Result{}
 }
 
 func (p *Pool) Worker() {
@@ -93,8 +102,8 @@ func (p *Pool) Worker() {
 		var repos []string = p.repos
 
 		/* Repo can be provided in the job */
-		if job.Repo != "" {
-			repos = []string{job.Repo}
+		if job.repo != "" {
+			repos = []string{job.repo}
 		}
 
 		p.TryRepos(job, repos)

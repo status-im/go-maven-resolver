@@ -40,7 +40,7 @@ func (f *Finder) ResolveDep(dep pom.Dependency) (string, *pom.Project, error) {
 	if !dep.HasVersion() {
 		path := dep.GetMetaPath()
 		/* We use workers for HTTP request to avoid running out of sockets */
-		f.fetchers.Queue <- &fetcher.Job{result, path, repo}
+		f.fetchers.Queue <- fetcher.NewJob(result, path, repo)
 		rval = <-result
 		if rval.Url == "" {
 			return "", nil, fmt.Errorf("no metadata found: %s", rval.Url)
@@ -57,7 +57,7 @@ func (f *Finder) ResolveDep(dep pom.Dependency) (string, *pom.Project, error) {
 
 	path := dep.GetPOMPath()
 	/* We use workers for HTTP request to avoid running out of sockets */
-	f.fetchers.Queue <- &fetcher.Job{result, path, repo}
+	f.fetchers.Queue <- fetcher.NewJob(result, path, repo)
 	rval = <-result
 
 	if rval.Data == nil {
