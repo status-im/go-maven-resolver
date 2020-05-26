@@ -4,54 +4,56 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+
+	"github.com/status-im/go-maven-resolver/fetcher"
 )
 
 type Finder struct {
 	deps         map[string]bool /* to avoid checking the same dep */
 	mtx          sync.Mutex      /* for locking access to the deps map */
 	wg           sync.WaitGroup  /* to figure out when it's done */
-	fetchers     FetcherPool     /* pool of workers for HTTP requests */
+	fetchers     fetcher.Pool    /* pool of workers for HTTP requests */
 	ignoreScopes []string        /* list of scopes to ignore */
 	recursive    bool            /* recursive resolution control */
 }
 
 func (f *Finder) ResolveDep(dep Dependency) (string, *Project, error) {
-	var rval *FetcherResult
+	var rval *fetcher.Result
 	var repo string
-	result := make(chan *FetcherResult)
+	result := make(chan *fetcher.Result)
 	defer close(result)
 
 	if !dep.HasVersion() {
 		path := dep.GetMetaPath()
 		/* We use workers for HTTP request to avoid running out of sockets */
-		f.fetchers.queue <- &FetcherJob{result, path, repo}
+		f.fetchers.Queue <- &fetcher.Job{result, path, repo}
 		rval = <-result
-		if rval.url == "" {
-			return "", nil, fmt.Errorf("no metadata found: %s", rval.url)
+		if rval.Url == "" {
+			return "", nil, fmt.Errorf("no metadata found: %s", rval.Url)
 		}
-		meta, err := MetadataFromReader(rval.data)
+		meta, err := MetadataFromReader(rval.Data)
 		if err != nil {
-			return "", nil, fmt.Errorf("failed to parse: %s", rval.url)
+			return "", nil, fmt.Errorf("failed to parse: %s", rval.Url)
 		}
 		dep.Version = meta.GetLatest()
 		/* This is to optimize the POM searching and avoid
 		 * checking more repos than is necessary. */
-		repo = rval.repo
+		repo = rval.Repo
 	}
 
 	path := dep.GetPOMPath()
 	/* We use workers for HTTP request to avoid running out of sockets */
-	f.fetchers.queue <- &FetcherJob{result, path, repo}
+	f.fetchers.Queue <- &fetcher.Job{result, path, repo}
 	rval = <-result
 
-	if rval.data == nil {
+	if rval.Data == nil {
 		return "", nil, errors.New("no pom data")
 	}
-	project, err := ProjectFromReader(rval.data)
+	project, err := ProjectFromReader(rval.Data)
 	if err != nil {
 		return "", nil, err
 	}
-	return rval.url, project, nil
+	return rval.Url, project, nil
 }
 
 func (f *Finder) InvalidDep(dep Dependency) bool {
