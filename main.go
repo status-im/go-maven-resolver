@@ -15,13 +15,15 @@ import (
 
 var l *log.Logger
 
-var workersNum int
-var requestTimeout int
-var reposFile string
-var ignoreScopes string
-var recursive bool
+var (
+	workersNum int
+	requestTimeout int
+	reposFile string
+	ignoreScopes string
+	recursive bool
+)
 
-var helpMessage string = `
+const helpMessage string = `
 This tool takes a names of a Java Maven packages
 via STDIN and returns the URLs of all its dependencies.
 
