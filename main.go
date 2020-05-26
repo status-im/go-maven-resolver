@@ -39,7 +39,7 @@ You can provide your own list using the -reposFile flag.
 func flagsInit() {
 	defaultUsage := flag.Usage
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr,
+		fmt.Fprintf(os.Stderr, // TODO unhandled error
 			strings.Trim(helpMessage, "\t "),
 			strings.Join(fetcher.DefaultRepos, "\n"))
 		defaultUsage()
@@ -88,7 +88,7 @@ func main() {
 	}
 
 	if err := scanner.Err(); err != nil {
-		fmt.Fprintln(os.Stderr, "Error:", err)
+		fmt.Fprintln(os.Stderr, "Error:", err) // TODO unhandled error
 	}
 
 	/* Each FindUrls() call can spawn more recursive FindUrls() routines.

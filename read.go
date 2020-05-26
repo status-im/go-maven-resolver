@@ -11,7 +11,7 @@ func ReadFileToList(path string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer file.Close() // TODO unhandled error
 
 	scanner := bufio.NewScanner(file)
 	var lines []string
