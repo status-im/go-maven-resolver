@@ -1,8 +1,9 @@
-package main
+package finder
 
 import (
 	"errors"
 	"fmt"
+	"log"
 	"sync"
 
 	"github.com/status-im/go-maven-resolver/fetcher"
@@ -11,11 +12,23 @@ import (
 
 type Finder struct {
 	deps         map[string]bool /* to avoid checking the same dep */
-	mtx          sync.Mutex      /* for locking access to the deps map */
-	wg           sync.WaitGroup  /* to figure out when it's done */
 	fetchers     fetcher.Pool    /* pool of workers for HTTP requests */
 	ignoreScopes []string        /* list of scopes to ignore */
 	recursive    bool            /* recursive resolution control */
+	l			 *log.Logger     /* for logging events */
+
+	mtx          sync.Mutex      /* for locking access to the deps map */
+	wg           sync.WaitGroup  /* to figure out when it's done */
+}
+
+func New(deps map[string]bool,  fetchers fetcher.Pool, ignoreScopes []string, recursive bool, logger *log.Logger) Finder{
+	return Finder{
+		deps:         deps,
+		fetchers:     fetchers,
+		ignoreScopes: ignoreScopes,
+		recursive:    recursive,
+		l: logger,
+	}
 }
 
 func (f *Finder) ResolveDep(dep pom.Dependency) (string, *pom.Project, error) {
@@ -81,6 +94,7 @@ func (f *Finder) LockDep(dep pom.Dependency) bool {
 }
 
 func (f *Finder) FindUrls(dep pom.Dependency) {
+	f.wg.Add(1)
 	defer f.wg.Done()
 
 	/* Check if the dependency is being checked or was already found. */
@@ -91,14 +105,14 @@ func (f *Finder) FindUrls(dep pom.Dependency) {
 	/* Does the job of finding the download URL for dependecy POM file. */
 	url, project, err := f.ResolveDep(dep)
 	if err != nil {
-		l.Printf("error: '%s' for: %s", err, dep)
+		f.l.Printf("error: '%s' for: %s", err, dep)
 		return
 	}
 
 	/* This should never happen, since most of the time if ResolveDep()
 	 * fails it is due to an HTTP error or XML parsing error. */
 	if url == "" {
-		l.Printf("error: 'no URL found' for: %s", dep)
+		f.l.Printf("error: 'no URL found' for: %s", dep)
 		return
 	}
 
@@ -114,7 +128,10 @@ func (f *Finder) FindUrls(dep pom.Dependency) {
 		if f.InvalidDep(subDep) {
 			continue
 		}
-		f.wg.Add(1)
 		go f.FindUrls(subDep)
 	}
+}
+
+func (f *Finder) Wait() {
+	f.wg.Wait()
 }

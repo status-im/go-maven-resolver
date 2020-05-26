@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/status-im/go-maven-resolver/fetcher"
+	"github.com/status-im/go-maven-resolver/finder"
 	"github.com/status-im/go-maven-resolver/pom"
 )
 
@@ -68,20 +69,20 @@ func main() {
 
 	/* Manages traversal threads, which go through the tree of dependencies
 	 * And spawn new Go routines for each new node in the tree. */
-	finder := Finder{
-		deps:         make(map[string]bool),
-		fetchers:     fetcher.NewPool(workersNum, requestTimeout, repos),
-		ignoreScopes: strings.Split(ignoreScopes, ","),
-		recursive:    recursive,
-	}
+	fnr := finder.New(
+		make(map[string]bool),
+		fetcher.NewPool(workersNum, requestTimeout, repos),
+		strings.Split(ignoreScopes, ","),
+		recursive,
+		l,
+	)
 
 	/* We read Maven formatted names of packages from STDIN.
 	 * The threads print found URLs into STDOUT. */
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		dep := pom.DependencyFromString(scanner.Text())
-		finder.wg.Add(1)
-		go finder.FindUrls(*dep)
+		go fnr.FindUrls(*dep)
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -90,5 +91,5 @@ func main() {
 
 	/* Each FindUrls() call can spawn more recursive FindUrls() routines.
 	 * To know when to stop the process they also increment the WaitGroup. */
-	finder.wg.Wait()
+	fnr.Wait()
 }
