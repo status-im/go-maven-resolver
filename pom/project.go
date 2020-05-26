@@ -21,7 +21,7 @@ type Project struct {
 
 /* For reading Project from downloaded POM file. */
 func ProjectFromReader(reader io.ReadCloser) (*Project, error) {
-	defer reader.Close()
+	defer reader.Close() // TODO unhandled error
 	decoder := xml.NewDecoder(reader)
 	decoder.CharsetReader = charset.NewReaderLabel
 	var project Project

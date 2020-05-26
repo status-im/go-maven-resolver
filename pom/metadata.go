@@ -22,7 +22,7 @@ type Metadata struct {
 
 /* For reading Metadata from downloaded XML file. */
 func MetadataFromReader(reader io.ReadCloser) (*Metadata, error) {
-	defer reader.Close()
+	defer reader.Close() // TODO unhandled error
 	decoder := xml.NewDecoder(reader)
 	decoder.CharsetReader = charset.NewReaderLabel
 	var meta Metadata
