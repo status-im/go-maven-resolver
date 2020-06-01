@@ -92,7 +92,7 @@ func main() {
 	}
 
 	if err := scanner.Err(); err != nil {
-		fmt.Fprintln(os.Stderr, "Error:", err) // TODO unhandled error
+		l.Printf("error:", err) // TODO unhandled error
 	}
 
 	/* Each FindUrls() call can spawn more recursive FindUrls() routines.
