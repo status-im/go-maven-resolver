@@ -17,16 +17,16 @@ type Dependency struct {
 
 /* Maven uses a special format for dependency identifiers:
  *  - <groupId>:<artifactId>:<version> */
-func DependencyFromString(data string) *Dependency {
+func DependencyFromString(data string) (*Dependency, error) {
 	tokens := strings.Split(data, ":")
 	if len(tokens) < 3 {
-		return nil
+		return nil, fmt.Errorf("not a valid maven dependency: %s", data)
 	}
 	return &Dependency{
 		GroupId:    tokens[0],
 		ArtifactId: tokens[1],
 		Version:    tokens[2],
-	}
+	}, nil
 }
 
 /* POM file dependency fields can reference parent fields. */

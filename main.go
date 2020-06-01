@@ -83,7 +83,11 @@ func main() {
 	 * The threads print found URLs into STDOUT. */
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
-		dep := pom.DependencyFromString(scanner.Text())
+		dep, err := pom.DependencyFromString(scanner.Text())
+		if err != nil {
+			l.Printf("failed to parse input: %s", err)
+			continue
+		}
 		go fnr.FindUrls(*dep)
 	}
 
