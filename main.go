@@ -16,11 +16,11 @@ import (
 var l *log.Logger
 
 var (
-	workersNum int
+	workersNum     int
 	requestTimeout int
-	reposFile string
-	ignoreScopes string
-	recursive bool
+	reposFile      string
+	ignoreScopes   string
+	recursive      bool
 )
 
 const helpMessage string = `
@@ -79,8 +79,7 @@ func main() {
 		l,
 	)
 
-	/* We read Maven formatted names of packages from STDIN.
-	 * The threads print found URLs into STDOUT. */
+	/* We read Maven formatted names of packages from STDIN. */
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		dep, err := pom.DependencyFromString(scanner.Text())
@@ -88,9 +87,11 @@ func main() {
 			l.Printf("failed to parse input: %s", err)
 			continue
 		}
-		go fnr.FindUrls(*dep)
+		/* The threads print found URLs into STDOUT. */
+		fnr.Resolve(*dep)
 	}
 
+	/* Reading from STDIN might fail. */
 	if err := scanner.Err(); err != nil {
 		l.Printf("error:", err) // TODO unhandled error
 	}

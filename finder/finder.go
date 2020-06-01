@@ -94,7 +94,6 @@ func (f *Finder) LockDep(dep pom.Dependency) bool {
 }
 
 func (f *Finder) FindUrls(dep pom.Dependency) {
-	f.wg.Add(1)
 	defer f.wg.Done()
 
 	/* Check if the dependency is being checked or was already found. */
@@ -128,8 +127,13 @@ func (f *Finder) FindUrls(dep pom.Dependency) {
 		if f.InvalidDep(subDep) {
 			continue
 		}
-		go f.FindUrls(subDep)
+		f.Resolve(subDep)
 	}
+}
+
+func (f *Finder) Resolve(dep pom.Dependency) {
+	f.wg.Add(1)
+	go f.FindUrls(dep)
 }
 
 func (f *Finder) Wait() {
