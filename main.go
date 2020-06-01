@@ -17,6 +17,7 @@ var l *log.Logger
 
 var (
 	workersNum     int
+	requestRetries int
 	requestTimeout int
 	reposFile      string
 	ignoreScopes   string
@@ -47,6 +48,7 @@ func flagsInit() {
 
 	flag.BoolVar(&recursive, "recursive", true, "Should recursive resolution be done")
 	flag.IntVar(&workersNum, "workers", 50, "Number of fetching workers.")
+	flag.IntVar(&requestRetries, "retries", 2, "HTTP request retries on non-404 codes.")
 	flag.IntVar(&requestTimeout, "timeout", 2, "HTTP request timeout in seconds.")
 	flag.StringVar(&reposFile, "reposFile", "", "Path file with repo URLs to check.")
 	flag.StringVar(&ignoreScopes, "ignoreScopes", "provided,system,test", "Scopes to ignore.")
@@ -73,7 +75,7 @@ func main() {
 	 * And spawn new Go routines for each new node in the tree. */
 	fnr := finder.New(
 		make(map[string]bool),
-		fetcher.NewPool(workersNum, requestTimeout, repos),
+		fetcher.NewPool(requestRetries, workersNum, requestTimeout, repos, l),
 		strings.Split(ignoreScopes, ","),
 		recursive,
 		l,
