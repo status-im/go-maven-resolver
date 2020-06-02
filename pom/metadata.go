@@ -21,13 +21,17 @@ type Metadata struct {
 }
 
 /* For reading Metadata from downloaded XML file. */
-func MetadataFromReader(reader io.ReadCloser) (*Metadata, error) {
-	defer reader.Close() // TODO unhandled error
+func MetadataFromReader(reader io.ReadCloser) (meta *Metadata, err error) {
+	defer func() {
+		cerr := reader.Close()
+		if err == nil {
+			err = cerr
+		}
+	}()
 	decoder := xml.NewDecoder(reader)
 	decoder.CharsetReader = charset.NewReaderLabel
-	var meta Metadata
-	err := decoder.Decode(&meta)
-	return &meta, err
+	err = decoder.Decode(&meta)
+	return
 }
 
 /* There are multiple values that could indicate latest version. */

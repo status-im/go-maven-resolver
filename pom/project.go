@@ -20,13 +20,17 @@ type Project struct {
 }
 
 /* For reading Project from downloaded POM file. */
-func ProjectFromReader(reader io.ReadCloser) (*Project, error) {
-	defer reader.Close() // TODO unhandled error
+func ProjectFromReader(reader io.ReadCloser) (project *Project, err error) {
+	defer func() {
+		cerr := reader.Close()
+		if err == nil {
+			err = cerr
+		}
+	}()
 	decoder := xml.NewDecoder(reader)
 	decoder.CharsetReader = charset.NewReaderLabel
-	var project Project
-	err := decoder.Decode(&project)
-	return &project, err
+	err = decoder.Decode(&project)
+	return
 }
 
 /* Sometimes groupId is not specified in project */

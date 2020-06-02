@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -41,8 +40,7 @@ You can provide your own list using the -reposFile flag.
 func flagsInit() {
 	defaultUsage := flag.Usage
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, // TODO unhandled error
-			strings.Trim(helpMessage, "\t "),
+		l.Printf(strings.Trim(helpMessage, "\t "),
 			strings.Join(fetcher.DefaultRepos, "\n"))
 		defaultUsage()
 	}
@@ -92,7 +90,7 @@ func main() {
 	for scanner.Scan() {
 		dep, err := pom.DependencyFromString(scanner.Text())
 		if err != nil {
-			l.Printf("failed to parse input: %s", err)
+			l.Println("failed to parse input:", err)
 			continue
 		}
 		/* The threads print found URLs into STDOUT. */
@@ -101,7 +99,8 @@ func main() {
 
 	/* Reading from STDIN might fail. */
 	if err := scanner.Err(); err != nil {
-		l.Printf("error:", err) // TODO unhandled error
+		l.Println("stdin read error:", err)
+		os.Exit(1)
 	}
 
 	/* Each FindUrls() call can spawn more recursive FindUrls() routines.
