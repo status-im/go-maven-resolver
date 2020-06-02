@@ -37,7 +37,7 @@ func NewJob(result chan *Result, path, repo string) *Job {
 
 /* In order to avoid hitting the 'socket: too many open files' error
  * We manage a pool of workers that do the HTTP requests to Maven repos. */
-type Pool struct {
+type Fetcher struct {
 	limit   int         /* max number of workers in pool */
 	timeout int         /* http request timeout in seconds */
 	retries int         /* number of retries on non-404 error */
@@ -50,8 +50,8 @@ func (r *Result) String() string {
 	return fmt.Sprintf("<Result Url=%s >", r.Url)
 }
 
-func NewPool(retries, limit, timeout int, repos []string, l *log.Logger) Pool {
-	f := Pool{
+func New(retries, limit, timeout int, repos []string, l *log.Logger) Fetcher {
+	f := Fetcher{
 		retries: retries,
 		limit:   limit,
 		timeout: timeout,
@@ -66,7 +66,7 @@ func NewPool(retries, limit, timeout int, repos []string, l *log.Logger) Pool {
 	return f
 }
 
-func (p *Pool) retryFetch(url string) (io.ReadCloser, error) {
+func (p *Fetcher) retryFetch(url string) (io.ReadCloser, error) {
 	var resp http.Response
 	for r := 1; r <= p.retries; r++ {
 		client := &http.Client{
@@ -90,7 +90,7 @@ func (p *Pool) retryFetch(url string) (io.ReadCloser, error) {
 	return nil, fmt.Errorf("failed to fetch with: %d", resp.StatusCode)
 }
 
-func (p *Pool) tryRepo(repo, path string) (*Result, error) {
+func (p *Fetcher) tryRepo(repo, path string) (*Result, error) {
 	var err error
 	url := repo + "/" + path
 	data, err := p.retryFetch(url)
@@ -100,7 +100,7 @@ func (p *Pool) tryRepo(repo, path string) (*Result, error) {
 	return &Result{url, repo, data}, nil
 }
 
-func (p *Pool) tryRepos(job *Job, repos []string) {
+func (p *Fetcher) tryRepos(job *Job, repos []string) {
 	for _, repo := range repos {
 		rval, err := p.tryRepo(repo, job.path)
 		if err == nil {
@@ -112,7 +112,7 @@ func (p *Pool) tryRepos(job *Job, repos []string) {
 	job.result <- &Result{}
 }
 
-func (p *Pool) Worker() {
+func (p *Fetcher) Worker() {
 	for job := range p.Queue {
 		var repos []string = p.repos
 
