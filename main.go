@@ -21,6 +21,7 @@ var (
 	requestTimeout int
 	reposFile      string
 	ignoreScopes   string
+	ignoreOptional bool
 	recursive      bool
 )
 
@@ -52,6 +53,7 @@ func flagsInit() {
 	flag.IntVar(&requestTimeout, "timeout", 2, "HTTP request timeout in seconds.")
 	flag.StringVar(&reposFile, "reposFile", "", "Path file with repo URLs to check.")
 	flag.StringVar(&ignoreScopes, "ignoreScopes", "provided,system,test", "Scopes to ignore.")
+	flag.BoolVar(&ignoreOptional, "ignoreOptional", true, "Ignore optional dependencies.")
 	flag.Parse()
 }
 
@@ -71,15 +73,19 @@ func main() {
 		repos = lines
 	}
 
+	/* Controls which dependencies are resolved. */
+	finderOpts := finder.Options{
+		IgnoreScopes:    strings.Split(ignoreScopes, ","),
+		IgnoreOptional:  ignoreOptional,
+		RecursiveSearch: recursive,
+	}
+
+	/* A separate pool of fetcher workers prevents running out of sockets */
+	fch := fetcher.New(requestRetries, workersNum, requestTimeout, repos, l)
+
 	/* Manages traversal threads, which go through the tree of dependencies
 	 * And spawn new Go routines for each new node in the tree. */
-	fnr := finder.New(
-		make(map[string]bool),
-		fetcher.NewPool(requestRetries, workersNum, requestTimeout, repos, l),
-		strings.Split(ignoreScopes, ","),
-		recursive,
-		l,
-	)
+	fnr := finder.New(finderOpts, fch, l)
 
 	/* We read Maven formatted names of packages from STDIN. */
 	scanner := bufio.NewScanner(os.Stdin)

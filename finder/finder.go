@@ -10,24 +10,28 @@ import (
 	"github.com/status-im/go-maven-resolver/pom"
 )
 
-type Finder struct {
-	deps         map[string]bool /* to avoid checking the same dep */
-	fetchers     fetcher.Pool    /* pool of workers for HTTP requests */
-	ignoreScopes []string        /* list of scopes to ignore */
-	recursive    bool            /* recursive resolution control */
-	l            *log.Logger     /* for logging events */
-
-	mtx sync.Mutex     /* for locking access to the deps map */
-	wg  sync.WaitGroup /* to figure out when it's done */
+type Options struct {
+	IgnoreScopes    []string /* list of dependency scopes to ignore */
+	IgnoreOptional  bool     /* if optional dependencies should be ignored */
+	RecursiveSearch bool     /* recursive dependency resolution switch */
 }
 
-func New(deps map[string]bool, fetchers fetcher.Pool, ignoreScopes []string, recursive bool, logger *log.Logger) Finder {
+type Finder struct {
+	opts     Options         /* options for handling dependencies */
+	fetchers fetcher.Fetcher /* pool of workers for HTTP requests */
+	l        *log.Logger     /* for logging events */
+
+	deps map[string]bool /* to avoid checking the same dep */
+	mtx  sync.Mutex      /* for locking access to the deps map */
+	wg   sync.WaitGroup  /* to figure out when it's done */
+}
+
+func New(opts Options, fetchers fetcher.Fetcher, logger *log.Logger) Finder {
 	return Finder{
-		deps:         deps,
-		fetchers:     fetchers,
-		ignoreScopes: ignoreScopes,
-		recursive:    recursive,
-		l:            logger,
+		deps:     make(map[string]bool),
+		opts:     opts,
+		fetchers: fetchers,
+		l:        logger,
 	}
 }
 
@@ -72,13 +76,13 @@ func (f *Finder) ResolveDep(dep pom.Dependency) (string, *pom.Project, error) {
 
 func (f *Finder) InvalidDep(dep pom.Dependency) bool {
 	/* Check if the scope matches any of the ignored ones. */
-	for i := range f.ignoreScopes {
-		if dep.Scope == f.ignoreScopes[i] {
+	for i := range f.opts.IgnoreScopes {
+		if dep.Scope == f.opts.IgnoreScopes[i] {
 			return true
 		}
 	}
-	/* Else just check if it's optional, TODO parametrize. */
-	return dep.Optional
+	/* Else just check if it's optional. */
+	return f.opts.IgnoreOptional && dep.Optional
 }
 
 /* We use a map of dependency IDs to avoid repeating a search. */
@@ -118,7 +122,7 @@ func (f *Finder) FindUrls(dep pom.Dependency) {
 	/* This is what shows the found URL in STDOUT. */
 	fmt.Println(url)
 
-	if !f.recursive {
+	if !f.opts.RecursiveSearch {
 		return
 	}
 
