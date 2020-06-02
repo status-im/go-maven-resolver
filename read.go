@@ -6,15 +6,20 @@ import (
 )
 
 /* Just a helper for reading file with repo URLs. */
-func ReadFileToList(path string) ([]string, error) {
+func ReadFileToList(path string) (lines []string, err error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close() // TODO unhandled error
+
+	defer func() {
+		cerr := file.Close()
+		if err == nil {
+			err = cerr
+		}
+	}()
 
 	scanner := bufio.NewScanner(file)
-	var lines []string
 	for scanner.Scan() {
 		lines = append(lines, scanner.Text())
 	}
