@@ -17,6 +17,7 @@ type Options struct {
 }
 
 type Finder struct {
+	failed   bool            /* set to true if any requests failed */
 	opts     Options         /* options for handling dependencies */
 	fetchers fetcher.Fetcher /* pool of workers for HTTP requests */
 	l        *log.Logger     /* for logging events */
@@ -109,6 +110,7 @@ func (f *Finder) FindUrls(dep pom.Dependency) {
 	url, project, err := f.ResolveDep(dep)
 	if err != nil {
 		f.l.Printf("error: '%s' for: %s", err, dep)
+		f.failed = true
 		return
 	}
 
@@ -116,6 +118,7 @@ func (f *Finder) FindUrls(dep pom.Dependency) {
 	 * fails it is due to an HTTP error or XML parsing error. */
 	if url == "" {
 		f.l.Printf("error: 'no URL found' for: %s", dep)
+		f.failed = true
 		return
 	}
 
@@ -142,4 +145,8 @@ func (f *Finder) Resolve(dep pom.Dependency) {
 
 func (f *Finder) Wait() {
 	f.wg.Wait()
+}
+
+func (f *Finder) Failed() bool {
+	return f.failed
 }

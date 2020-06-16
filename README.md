@@ -15,13 +15,19 @@ The package name takes the Maven format: `<groupId>:<artifactId>:<version>`
 
 There's also a few flags available:
 ```
-Usage of go-maven-resolver:
+Usage of ./go-maven-resolver:
+  -exitCode
+    	Set exit code on any resolving failures. (default true)
+  -ignoreOptional
+    	Ignore optional dependencies. (default true)
   -ignoreScopes string
     	Scopes to ignore. (default "provided,system,test")
   -recursive
     	Should recursive resolution be done (default true)
   -reposFile string
     	Path file with repo URLs to check.
+  -retries int
+    	HTTP request retries on non-404 codes. (default 2)
   -timeout int
     	HTTP request timeout in seconds. (default 2)
   -workers int
