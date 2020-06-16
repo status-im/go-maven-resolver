@@ -22,6 +22,7 @@ var (
 	ignoreScopes   string
 	ignoreOptional bool
 	recursive      bool
+	exitCode       bool
 )
 
 const helpMessage string = `
@@ -52,6 +53,7 @@ func flagsInit() {
 	flag.StringVar(&reposFile, "reposFile", "", "Path file with repo URLs to check.")
 	flag.StringVar(&ignoreScopes, "ignoreScopes", "provided,system,test", "Scopes to ignore.")
 	flag.BoolVar(&ignoreOptional, "ignoreOptional", true, "Ignore optional dependencies.")
+	flag.BoolVar(&exitCode, "exitCode", true, "Set exit code on any resolving failures.")
 	flag.Parse()
 }
 
@@ -106,4 +108,9 @@ func main() {
 	/* Each FindUrls() call can spawn more recursive FindUrls() routines.
 	 * To know when to stop the process they also increment the WaitGroup. */
 	fnr.Wait()
+
+	/* If any of the requests failed return a non-0 exit code */
+	if exitCode && fnr.Failed() {
+		os.Exit(1)
+	}
 }
