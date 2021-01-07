@@ -11,9 +11,10 @@ import (
 )
 
 type Options struct {
-	IgnoreScopes    []string /* list of dependency scopes to ignore */
-	IgnoreOptional  bool     /* if optional dependencies should be ignored */
-	RecursiveSearch bool     /* recursive dependency resolution switch */
+	IgnoreScopes     []string /* list of dependency scopes to ignore */
+	IgnoreOptional   bool     /* if optional dependencies should be ignored */
+	IgnoreTransitive bool     /* managed dependencies can be often ignored  */
+	RecursiveSearch  bool     /* recursive dependency resolution switch */
 }
 
 type Finder struct {
@@ -76,6 +77,14 @@ func (f *Finder) ResolveDep(dep pom.Dependency) (string, *pom.Project, error) {
 }
 
 func (f *Finder) InvalidDep(dep pom.Dependency) bool {
+	if dep.Transitive {
+		if f.opts.IgnoreTransitive {
+			return true
+		} else if dep.Scope == "none" {
+			/* Unscoped transitive deps are mostly useless trash. */
+			return true
+		}
+	}
 	/* Check if the scope matches any of the ignored ones. */
 	for i := range f.opts.IgnoreScopes {
 		if dep.Scope == f.opts.IgnoreScopes[i] {

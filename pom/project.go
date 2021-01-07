@@ -8,13 +8,14 @@ import (
 
 /* Root object in XML POM files defining packages. */
 type Project struct {
-	GroupId      string       `xml:"groupId"`
-	ArtifactId   string       `xml:"artifactId"`
-	Name         string       `xml:"name"`
-	Version      string       `xml:"version"`
-	Parent       Dependency   `xml:"parent"`
-	Dependencies []Dependency `xml:"dependencies>dependency"`
-	Build        struct {
+	GroupId         string       `xml:"groupId"`
+	ArtifactId      string       `xml:"artifactId"`
+	Name            string       `xml:"name"`
+	Version         string       `xml:"version"`
+	Parent          Dependency   `xml:"parent"`
+	Dependencies    []Dependency `xml:"dependencies>dependency"`
+	DependenciesMgm []Dependency `xml:"dependencyManagement>dependencies>dependency"`
+	Build           struct {
 		Plugins []Dependency `xml:"plugins>plugin"`
 	}
 }
@@ -49,6 +50,10 @@ func (p Project) GetDependencies() []Dependency {
 		deps = append(deps, p.Parent)
 	}
 	for _, dep := range p.Dependencies {
+		deps = append(deps, dep.FixFields(p))
+	}
+	for _, dep := range p.DependenciesMgm {
+		dep.Transitive = true
 		deps = append(deps, dep.FixFields(p))
 	}
 	for _, dep := range p.Build.Plugins {
