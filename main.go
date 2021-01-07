@@ -15,14 +15,15 @@ import (
 var l *log.Logger
 
 var (
-	workersNum     int
-	requestRetries int
-	requestTimeout int
-	reposFile      string
-	ignoreScopes   string
-	ignoreOptional bool
-	recursive      bool
-	exitCode       bool
+	workersNum       int
+	requestRetries   int
+	requestTimeout   int
+	reposFile        string
+	ignoreScopes     string
+	ignoreOptional   bool
+	ignoreTransitive bool
+	recursive        bool
+	exitCode         bool
 )
 
 const helpMessage string = `
@@ -53,6 +54,7 @@ func flagsInit() {
 	flag.StringVar(&reposFile, "reposFile", "", "Path file with repo URLs to check.")
 	flag.StringVar(&ignoreScopes, "ignoreScopes", "provided,system,test", "Scopes to ignore.")
 	flag.BoolVar(&ignoreOptional, "ignoreOptional", true, "Ignore optional dependencies.")
+	flag.BoolVar(&ignoreTransitive, "ignoreTransitive", false, "Ignore transitive dependencies.")
 	flag.BoolVar(&exitCode, "exitCode", true, "Set exit code on any resolving failures.")
 	flag.Parse()
 }
@@ -75,9 +77,10 @@ func main() {
 
 	/* Controls which dependencies are resolved. */
 	finderOpts := finder.Options{
-		IgnoreScopes:    strings.Split(ignoreScopes, ","),
-		IgnoreOptional:  ignoreOptional,
-		RecursiveSearch: recursive,
+		IgnoreScopes:     strings.Split(ignoreScopes, ","),
+		IgnoreOptional:   ignoreOptional,
+		IgnoreTransitive: ignoreTransitive,
+		RecursiveSearch:  recursive,
 	}
 
 	/* A separate pool of fetcher workers prevents running out of sockets */

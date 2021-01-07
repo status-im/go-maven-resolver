@@ -13,6 +13,8 @@ type Dependency struct {
 	Version    string `xml:"version"`
 	Scope      string `xml:"scope"`
 	Optional   bool   `xml:"optional"`
+	/* Indirect dependencies */
+	Transitive bool
 }
 
 /* Maven uses a special format for dependency identifiers:
@@ -39,6 +41,9 @@ func (d Dependency) FixFields(parent Project) Dependency {
 	}
 	if d.Version == "${project.version}" {
 		d.Version = parent.Version
+	}
+	if d.Scope == "" {
+		d.Scope = "none"
 	}
 	return d
 }
