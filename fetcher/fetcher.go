@@ -12,7 +12,8 @@ import (
 var DefaultRepos = []string{
 	"https://repo.maven.apache.org/maven2",
 	"https://dl.google.com/dl/android/maven2",
-	"https://repository.sonatype.org/content/groups/sonatype-public-grid",
+	"https://plugins.gradle.org/m2",
+	"https://jitpack.io",
 }
 
 type Result struct {
