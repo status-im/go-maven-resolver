@@ -30,6 +30,7 @@ func ProjectFromReader(reader io.ReadCloser) (project *Project, err error) {
 	}()
 	decoder := xml.NewDecoder(reader)
 	decoder.CharsetReader = charset.NewReaderLabel
+	decoder.Entity = xml.HTMLEntity
 	err = decoder.Decode(&project)
 	return
 }

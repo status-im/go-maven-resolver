@@ -30,6 +30,7 @@ func MetadataFromReader(reader io.ReadCloser) (meta *Metadata, err error) {
 	}()
 	decoder := xml.NewDecoder(reader)
 	decoder.CharsetReader = charset.NewReaderLabel
+	decoder.Entity = xml.HTMLEntity
 	err = decoder.Decode(&meta)
 	return
 }
