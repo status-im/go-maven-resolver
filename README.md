@@ -50,6 +50,6 @@ The fetching is done by a pool of workers to avoid running out of sockets.
 I've decided to write this because I could not find a way to achieve the same thing using Gradle or Maven.
 Using commands like `mvn dependency:list` or `mvn help:effective-pom` is too slow and give hard to parse output. It also attempts to download all of the necessary JARs and POMs which is unnecessary.
 
-This is used to generate data for managing dependencies for a Gradle project via [Nix package manager](https://nixos.org/nix/) in our [status-react](https://github.com/status-im/status-react/tree/develop/nix/deps/gradle) repo.
+This is used to generate data for managing dependencies for a Gradle project via [Nix package manager](https://nixos.org/nix/) in our [status-mobile](https://github.com/status-im/status-mobile/tree/develop/nix/deps/gradle) repo.
 
 For more details see [this Gradle Forum post](https://discuss.gradle.org/t/how-to-get-full-list-of-dependencies-and-their-meta/35825).
