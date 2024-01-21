@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/status-im/go-maven-resolver/fetcher"
 	"github.com/status-im/go-maven-resolver/pom"
@@ -43,6 +44,10 @@ func (f *Finder) ResolveDep(dep pom.Dependency) (string, *pom.Project, error) {
 	result := make(chan *fetcher.Result)
 	defer close(result)
 
+	// Add constants for retry logic
+	const maxRetries = 3
+	const retryDelay = time.Second * 1
+
 	if !dep.HasVersion() {
 		path := dep.GetMetaPath()
 		/* We use workers for HTTP request to avoid running out of sockets */
@@ -63,12 +68,24 @@ func (f *Finder) ResolveDep(dep pom.Dependency) (string, *pom.Project, error) {
 
 	path := dep.GetPOMPath()
 	/* We use workers for HTTP request to avoid running out of sockets */
-	f.fetchers.Queue <- fetcher.NewJob(result, path, repo)
-	rval = <-result
+	// Retry logic for fetching data
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		f.fetchers.Queue <- fetcher.NewJob(result, path, repo)
+		rval = <-result
+
+		if rval.Data != nil {
+			break
+		}
+
+		if attempt < maxRetries-1 {
+			time.Sleep(retryDelay)
+		}
+	}
 
 	if rval.Data == nil {
 		return "", nil, errors.New("no pom data")
 	}
+
 	project, err := pom.ProjectFromReader(rval.Data)
 	if err != nil {
 		return "", nil, err
