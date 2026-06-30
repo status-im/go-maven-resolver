@@ -73,7 +73,13 @@ func (p *Fetcher) retryFetch(url string) (io.ReadCloser, error) {
 		client := &http.Client{
 			Timeout: time.Duration(p.timeout) * time.Second,
 		}
-		resp, err := client.Get(url)
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Add("User-Agent", "go-maven-resolver/1.1.3 (+https://github.com/status-im/go-maven-resolver)")
+
+		resp, err := client.Do(req)
 		if err != nil {
 			return nil, err
 		}

@@ -2,8 +2,9 @@ package pom
 
 import (
 	"encoding/xml"
-	"golang.org/x/net/html/charset"
 	"io"
+
+	"golang.org/x/net/html/charset"
 )
 
 /* Root object in XML POM files defining packages. */
