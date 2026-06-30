@@ -22,6 +22,8 @@ Usage of ./go-maven-resolver:
     	Ignore optional dependencies. (default true)
   -ignoreScopes string
     	Scopes to ignore. (default "provided,system,test")
+  -ignoreTransitive
+    	Ignore transitive dependencies.
   -recursive
     	Should recursive resolution be done (default true)
   -reposFile string
@@ -30,6 +32,8 @@ Usage of ./go-maven-resolver:
     	HTTP request retries on non-404 codes. (default 2)
   -timeout int
     	HTTP request timeout in seconds. (default 2)
+  -version
+    	Print the version and exit.
   -workers int
     	Number of fetching workers. (default 50)
 ```
@@ -53,3 +57,11 @@ Using commands like `mvn dependency:list` or `mvn help:effective-pom` is too slo
 This is used to generate data for managing dependencies for a Gradle project via [Nix package manager](https://nixos.org/nix/) in our [status-mobile](https://github.com/status-im/status-mobile/tree/develop/nix/deps/gradle) repo.
 
 For more details see [this Gradle Forum post](https://discuss.gradle.org/t/how-to-get-full-list-of-dependencies-and-their-meta/35825).
+
+# Install
+
+You can install the latest version using `go install`:
+
+```bash
+go install github.com/status-im/go-maven-resolver@latest
+```

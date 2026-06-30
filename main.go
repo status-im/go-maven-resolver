@@ -3,12 +3,14 @@ package main
 import (
 	"bufio"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"strings"
 
 	"github.com/status-im/go-maven-resolver/fetcher"
 	"github.com/status-im/go-maven-resolver/finder"
+	"github.com/status-im/go-maven-resolver/internal/buildinfo"
 	"github.com/status-im/go-maven-resolver/pom"
 )
 
@@ -24,6 +26,7 @@ var (
 	ignoreTransitive bool
 	recursive        bool
 	exitCode         bool
+	printVersion     bool
 )
 
 const helpMessage string = `
@@ -56,6 +59,7 @@ func flagsInit() {
 	flag.BoolVar(&ignoreOptional, "ignoreOptional", true, "Ignore optional dependencies.")
 	flag.BoolVar(&ignoreTransitive, "ignoreTransitive", false, "Ignore transitive dependencies.")
 	flag.BoolVar(&exitCode, "exitCode", true, "Set exit code on any resolving failures.")
+	flag.BoolVar(&printVersion, "version", false, "Print the version and exit.")
 	flag.Parse()
 }
 
@@ -63,6 +67,11 @@ func main() {
 	l = log.New(os.Stderr, "", log.Lshortfile)
 
 	flagsInit()
+
+	if printVersion {
+		fmt.Println("go-maven-resolver version", buildinfo.Version)
+		os.Exit(0)
+	}
 
 	repos := fetcher.DefaultRepos
 
